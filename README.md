@@ -78,11 +78,11 @@ For desktop build and launch instructions, see [the desktop README](packages/des
 - Automatic and manual upstream CLI/desktop upgrades are disabled.
 - Desktop release feeds and upstream sidecar downloads are removed; WSL auto-provisioning is disabled.
 - The root installer refuses to download upstream binaries.
-- All 26 GitHub workflows are archived under `.github/disabled-workflows/`, outside GitHub's workflow discovery directory. These local changes affect hosted automation only after they reach the relevant remote branch.
+- Upstream GitHub workflows and repository-maintenance metadata are excluded from this standalone source tree.
 - Project configuration disables sharing, auto-update, formatters, and LSP startup; the external source-code reference has been removed.
 - Old repository-maintenance agents and commands are archived under `.openresearch/archive/`.
 
-The Git remote is not itself an auto-update mechanism. Its existing upstream URL has not been rewritten; do not pull or push upstream. Configure a fork-owned remote separately before publishing this project. Provider APIs, model metadata, configured plugins, MCP services, and ordinary dependency installation still require their respective networks; this is not an offline or network-isolated build.
+The Git remote is not itself an auto-update mechanism. The `origin` remote belongs to this independent project; do not add or push to an upstream OpenResearch remote. Provider APIs, model metadata, configured plugins, MCP services, and ordinary dependency installation still require their respective networks; this is not an offline or network-isolated build.
 
 ## Verification And Limits
 

@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Disallow shared content pages
+Disallow: /s/
+Disallow: /share/
+
+Sitemap: https://openresearch.ai/sitemap.xml
+Sitemap: https://openresearch.ai/data/sitemap.xml

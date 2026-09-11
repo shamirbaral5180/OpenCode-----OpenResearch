@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=OpenResearch
+Exec=/opt/OpenResearch/ai.openresearch.desktop %U
+Terminal=false
+Type=Application
+Icon=ai.openresearch.desktop
+StartupWMClass=ai.openresearch.desktop
+NoDisplay=true
+Comment=Open source AI coding agent
+Categories=Development;

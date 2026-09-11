@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openresearch.ai/config.json",
+  "model": "anthropic/claude-sonnet"
+}

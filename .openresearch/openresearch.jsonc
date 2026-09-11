@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openresearch.ai/config.json",
+  "default_agent": "research",
+  "autoupdate": false,
+  "share": "disabled",
+  "lsp": false,
+  "formatter": false,
+  "provider": {},
+  "permission": {},
+  "mcp": {
+    "MCP_DOCKER": {
+      "type": "local",
+      "command": ["docker", "mcp", "gateway", "run", "--profile", "default"],
+      "enabled": true,
+      "timeout": 60000,
+    },
+  },
+  "tools": {
+    "github-triage": false,
+    "github-pr-search": false,
+  },
+}

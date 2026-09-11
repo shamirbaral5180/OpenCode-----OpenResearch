@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="512" height="512"><svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="or-outer" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#166334"/>
+<stop offset="50%" stop-color="#166334"/>
+<stop offset="50%" stop-color="#5B21B6"/>
+<stop offset="100%" stop-color="#5B21B6"/>
+</linearGradient>
+<linearGradient id="or-inner" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#4ADE80"/>
+<stop offset="50%" stop-color="#4ADE80"/>
+<stop offset="50%" stop-color="#A78BFA"/>
+<stop offset="100%" stop-color="#A78BFA"/>
+</linearGradient>
+</defs>
+<rect width="512" height="512" fill="url(#or-outer)"></rect>
+<path d="M320 224V352H192V224H320Z" fill="#C4B5FD"></path>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M384 416H128V96H384V416ZM320 160H192V352H320V160Z" fill="url(#or-inner)"></path>
+</svg><style>@media (prefers-color-scheme: light) { :root { filter: none; } }
+@media (prefers-color-scheme: dark) { :root { filter: none; } }
+</style></svg>

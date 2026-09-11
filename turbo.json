@@ -1,0 +1,36 @@
+{
+  "$schema": "https://v2-8-13.turborepo.dev/schema.json",
+  "globalEnv": ["CI", "OPENRESEARCH_DISABLE_SHARE"],
+  "globalPassThroughEnv": ["CI", "OPENRESEARCH_DISABLE_SHARE"],
+  "tasks": {
+    "typecheck": {},
+    "build": {
+      "dependsOn": [],
+      "outputs": ["dist/**"]
+    },
+    "openresearch#test": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "passThroughEnv": ["*"]
+    },
+    "@openresearch-ai/core#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@openresearch-ai/function#test": {
+      "outputs": []
+    },
+    "@openresearch-ai/app#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@openresearch-ai/ui#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "@openresearch-ai/session-ui#test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    }
+  }
+}

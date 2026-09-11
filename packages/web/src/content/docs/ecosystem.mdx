@@ -1,0 +1,84 @@
+---
+title: Ecosystem
+description: Projects and integrations built with OpenResearch.
+---
+
+A collection of community projects built on OpenResearch.
+
+:::note
+Want to add your OpenResearch related project to this list? Submit a PR.
+:::
+
+You can also check out [awesome-openresearch](https://github.com/awesome-openresearch/awesome-openresearch) and [openresearch.cafe](https://openresearch.cafe), a community that aggregates the ecosystem and community.
+
+---
+
+## Plugins
+
+| Name                                                                                               | Description                                                                                        |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [openresearch-daytona](https://github.com/daytona/integrations/tree/main/packages/openresearch-plugin)     | Automatically run OpenResearch sessions in isolated Daytona sandboxes with git sync and live previews  |
+| [openresearch-helicone-session](https://github.com/H2Shami/openresearch-helicone-session)                  | Automatically inject Helicone session headers for request grouping                                 |
+| [openresearch-type-inject](https://github.com/nick-vi/openresearch-type-inject)                            | Auto-inject TypeScript/Svelte types into file reads with lookup tools                              |
+| [openresearch-openai-codex-auth](https://github.com/numman-ali/openresearch-openai-codex-auth)             | Use your ChatGPT Plus/Pro subscription instead of API credits                                      |
+| [openresearch-gemini-auth](https://github.com/jenslys/openresearch-gemini-auth)                            | Use your existing Gemini plan instead of API billing                                               |
+| [openresearch-antigravity-auth](https://github.com/NoeFabris/openresearch-antigravity-auth)                | Use Antigravity's free models instead of API billing                                               |
+| [openresearch-devcontainers](https://github.com/athal7/openresearch-devcontainers)                         | Multi-branch devcontainer isolation with shallow clones and auto-assigned ports                    |
+| [openresearch-google-antigravity-auth](https://github.com/shekohex/openresearch-google-antigravity-auth)   | Google Antigravity OAuth Plugin, with support for Google Search, and more robust API handling      |
+| [openresearch-dynamic-context-pruning](https://github.com/Tarquinen/openresearch-dynamic-context-pruning)  | Optimize token usage by pruning obsolete tool outputs                                              |
+| [openresearch-vibeguard](https://github.com/inkdust2021/openresearch-vibeguard)                            | Redact secrets/PII into VibeGuard-style placeholders before LLM calls; restore locally             |
+| [openresearch-websearch-cited](https://github.com/ghoulr/openresearch-websearch-cited.git)                 | Add native websearch support for supported providers with Google grounded style                    |
+| [openresearch-pty](https://github.com/shekohex/openresearch-pty.git)                                       | Enables AI agents to run background processes in a PTY, send interactive input to them.            |
+| [openresearch-shell-strategy](https://github.com/JRedeker/openresearch-shell-strategy)                     | Instructions for non-interactive shell commands - prevents hangs from TTY-dependent operations     |
+| [openresearch-wakatime](https://github.com/angristan/openresearch-wakatime)                                | Track OpenResearch usage with Wakatime                                                                 |
+| [openresearch-md-table-formatter](https://github.com/franlol/openresearch-md-table-formatter/tree/main)    | Clean up markdown tables produced by LLMs                                                          |
+| [openresearch-morph-fast-apply](https://github.com/JRedeker/openresearch-morph-fast-apply)                 | 10x faster code editing with Morph Fast Apply API and lazy edit markers                            |
+| [openresearch-morph-plugin](https://github.com/morphllm/openresearch-morph-plugin)                         | Fast Apply editing, WarpGrep codebase search, and context compaction via Morph                     |
+| [oh-my-openresearch](https://github.com/code-yeongyu/oh-my-openresearch)                                   | Background agents, pre-built LSP/AST/MCP tools, curated agents, Claude Code compatible             |
+| [openresearch-notificator](https://github.com/panta82/openresearch-notificator)                            | Desktop notifications and sound alerts for OpenResearch sessions                                       |
+| [openresearch-notifier](https://github.com/mohak34/openresearch-notifier)                                  | Desktop notifications and sound alerts for permission, completion, and error events                |
+| [openresearch-zellij-namer](https://github.com/24601/openresearch-zellij-namer)                            | AI-powered automatic Zellij session naming based on OpenResearch context                               |
+| [openresearch-skillful](https://github.com/zenobi-us/openresearch-skillful)                                | Allow OpenResearch agents to lazy load prompts on demand with skill discovery and injection            |
+| [openresearch-supermemory](https://github.com/supermemoryai/openresearch-supermemory)                      | Persistent memory across sessions using Supermemory                                                |
+| [@plannotator/openresearch](https://github.com/backnotprop/plannotator/tree/main/apps/openresearch-plugin) | Interactive plan review with visual annotation and private/offline sharing                         |
+| [@openspoon/subtask2](https://github.com/spoons-and-mirrors/subtask2)                              | Extend openresearch /commands into a powerful orchestration system with granular flow control          |
+| [openresearch-scheduler](https://github.com/different-ai/openresearch-scheduler)                           | Schedule recurring jobs using launchd (Mac) or systemd (Linux) with cron syntax                    |
+| [openresearch-conductor](https://github.com/derekbar90/openresearch-conductor)                             | Protocol-Driven Workflow: Automation of the Context -> Spec -> Plan -> Implement lifecycle.        |
+| [micode](https://github.com/vtemian/micode)                                                        | Structured Brainstorm → Plan → Implement workflow with session continuity                          |
+| [octto](https://github.com/vtemian/octto)                                                          | Interactive browser UI for AI brainstorming with multi-question forms                              |
+| [openresearch-background-agents](https://github.com/kdcokenny/openresearch-background-agents)              | Claude Code-style background agents with async delegation and context persistence                  |
+| [openresearch-notify](https://github.com/kdcokenny/openresearch-notify)                                    | Native OS notifications for OpenResearch – know when tasks complete                                    |
+| [openresearch-workspace](https://github.com/kdcokenny/openresearch-workspace)                              | Bundled multi-agent orchestration harness – 16 components, one install                             |
+| [openresearch-worktree](https://github.com/kdcokenny/openresearch-worktree)                                | Zero-friction git worktrees for OpenResearch                                                           |
+| [openresearch-sentry-monitor](https://github.com/stolinski/openresearch-sentry-monitor)                    | Trace and debug your AI agents with Sentry AI Monitoring                                           |
+| [openresearch-firecrawl](https://github.com/firecrawl/openresearch-firecrawl)                              | Web scraping, crawling, and search via the Firecrawl CLI                                           |
+| [openresearch-jfrog-plugin](https://github.com/jfrog/openresearch-jfrog-plugin)                            | JFrog Plugin for seamless integration of OpenResearch users to JFrog platform                          |
+| [openresearch-goal-plugin](https://github.com/willytop8/OpenResearch-goal-plugin)                          | Session-scoped `/goal` workflow that keeps objectives in context and auto-continues until complete |
+| [openresearch-tavily](https://github.com/tavily-ai/openresearch-tavily)                                    | Web search, extraction, crawling, and deep research via the Tavily CLI                             |
+
+---
+
+## Projects
+
+| Name                                                                                       | Description                                                      |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| [kimaki](https://github.com/remorses/kimaki)                                               | Discord bot to control OpenResearch sessions, built on the SDK       |
+| [openresearch.nvim](https://github.com/NickvanDyke/openresearch.nvim)                              | Neovim plugin for editor-aware prompts, built on the API         |
+| [portal](https://github.com/hosenur/portal)                                                | Mobile-first web UI for OpenResearch over Tailscale/VPN              |
+| [openresearch plugin template](https://github.com/zenobi-us/openresearch-plugin-template/)         | Template for building OpenResearch plugins                           |
+| [openresearch.nvim](https://github.com/sudo-tee/openresearch.nvim)                                 | Neovim frontend for openresearch - a terminal-based AI coding agent  |
+| [ai-sdk-provider-openresearch-sdk](https://github.com/ben-vargas/ai-sdk-provider-openresearch-sdk) | Vercel AI SDK provider for using OpenResearch via @openresearch-ai/sdk   |
+| [OpenChamber](https://github.com/btriapitsyn/openchamber)                                  | Web / Desktop App and VS Code Extension for OpenResearch             |
+| [OpenResearch-Obsidian](https://github.com/mtymek/openresearch-obsidian)                           | Obsidian plugin that embeds OpenResearch in Obsidian's UI            |
+| [OpenWork](https://github.com/different-ai/openwork)                                       | An open-source alternative to Claude Cowork, powered by OpenResearch |
+| [ocx](https://github.com/kdcokenny/ocx)                                                    | OpenResearch extension manager with portable, isolated profiles.     |
+| [CodeNomad](https://github.com/NeuralNomadsAI/CodeNomad)                                   | Desktop, Web, Mobile and Remote Client App for OpenResearch          |
+
+---
+
+## Agents
+
+| Name                                                              | Description                                                  |
+| ----------------------------------------------------------------- | ------------------------------------------------------------ |
+| [Agentic](https://github.com/Cluster444/agentic)                  | Modular AI agents and commands for structured development    |
+| [openresearch-agents](https://github.com/darrenhinde/openresearch-agents) | Configs, prompts, agents, and plugins for enhanced workflows |
