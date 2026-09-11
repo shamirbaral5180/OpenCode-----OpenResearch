@@ -88,4 +88,4 @@ The Git remote is not itself an auto-update mechanism. The `origin` remote belon
 
 Focused tests cover research defaults/permissions and prompt composition, legacy-layout persistence, terminal branding, update guards, local assets, and desktop preparation. A live paid-model research session and packaged desktop/mobile visual checks are not part of those tests. Strong prompts cannot guarantee exhaustive discovery or zero factual errors; consequential claims still need human review.
 
-The original MIT license and attribution are retained. `README.upstream.md` and other-language READMEs are historical upstream documentation, not installation or feature documentation for this fork. English research copy has been updated; a complete translation refresh is not included.
+The original MIT license and attribution are retained. This English README is the canonical installation and feature documentation for the project.
