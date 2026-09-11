@@ -10,9 +10,9 @@ import { SettingsProvidersV2 } from "./providers"
 import { SettingsModelsV2 } from "./models"
 import "./settings-v2.css"
 import { SettingsServersV2 } from "./servers"
-import { SettingsSkillsV2, SettingsSystemPromptV2 } from "./research"
 import { SettingsModelInputV2 } from "./model-input"
 import { SettingsAIContextV2 } from "./ai-context"
+import { SettingsAgentV2 } from "./agent-settings"
 import { useDialog } from "@openresearch-ai/ui/context/dialog"
 import { useLayout } from "@/context/layout"
 import { useTabs } from "@/context/tabs"
@@ -64,6 +64,10 @@ export const DialogSettings: Component<{
                       <Icon name="sliders" />
                       {language.t("settings.tab.general")}
                     </TabsV2.Trigger>
+                    <TabsV2.Trigger value="agent-settings">
+                      <Icon name="brain" />
+                      {language.t("settings.tab.agent")}
+                    </TabsV2.Trigger>
                     <TabsV2.Trigger value="shortcuts">
                       <Icon name="keyboard" />
                       {language.t("settings.tab.shortcuts")}
@@ -74,14 +78,6 @@ export const DialogSettings: Component<{
                 <div class="flex flex-col gap-1.5">
                   <TabsV2.SectionTitle>{language.t("settings.section.research")}</TabsV2.SectionTitle>
                   <div class="flex flex-col gap-1.5 w-full">
-                    <TabsV2.Trigger value="system-prompt">
-                      <Icon name="brain" />
-                      {language.t("settings.tab.systemPrompt")}
-                    </TabsV2.Trigger>
-                    <TabsV2.Trigger value="skills">
-                      <Icon name="bullet-list" />
-                      {language.t("settings.tab.skills")}
-                    </TabsV2.Trigger>
                     <TabsV2.Trigger value="ai-context">
                       <Icon name="sliders" />
                       {language.t("settings.tab.aiContext")}
@@ -121,17 +117,14 @@ export const DialogSettings: Component<{
         <TabsV2.Content value="general" class="settings-v2-panel">
           <SettingsGeneralV2 sessionID={props.sessionID} />
         </TabsV2.Content>
+        <TabsV2.Content value="agent-settings" class="settings-v2-panel">
+          <SettingsAgentV2 />
+        </TabsV2.Content>
         <TabsV2.Content value="shortcuts" class="settings-v2-panel">
           <SettingsKeybinds v2 />
         </TabsV2.Content>
         <TabsV2.Content value="servers" class="settings-v2-panel">
           <SettingsServersV2 />
-        </TabsV2.Content>
-        <TabsV2.Content value="system-prompt" class="settings-v2-panel">
-          <SettingsSystemPromptV2 />
-        </TabsV2.Content>
-        <TabsV2.Content value="skills" class="settings-v2-panel">
-          <SettingsSkillsV2 />
         </TabsV2.Content>
         <TabsV2.Content value="ai-context" class="settings-v2-panel">
           <SettingsAIContextV2 />
