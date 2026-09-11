@@ -36,6 +36,26 @@ type AgentSettingsConfig = Config & {
   }
 }
 
+const defaultAgent: ResearchAgent = {
+  prompt:
+    "You are a research agent tasked with investigating topics and providing well-sourced answers. Use tools thoughtfully and cite sources.",
+  model: "",
+  variant: "",
+  temperature: 0.7,
+  top_p: 1,
+  steps: 10,
+  permission: { mode: "ask" },
+  options: {},
+}
+
+const defaultCompaction = {
+  auto: true,
+  prune: false,
+  tail_turns: 5,
+  preserve_recent_tokens: 100,
+  reserved: 0,
+}
+
 export const SettingsAgentV2: Component = () => {
   const language = useLanguage()
   const serverSync = useServerSync()
@@ -44,24 +64,44 @@ export const SettingsAgentV2: Component = () => {
     const agent = current().agent?.research ?? {}
     const compaction = current().compaction ?? {}
     return {
-      prompt: agent.prompt ?? "",
-      instructions: (current().instructions ?? []).join("\n"),
-      model: agent.model ?? "",
-      variant: agent.variant ?? "",
-      temperature: optionalString(agent.temperature),
-      topP: optionalString(agent.top_p),
-      steps: optionalString(agent.steps),
-      permission: JSON.stringify(agent.permission ?? {}, null, 2),
-      options: JSON.stringify(agent.options ?? {}, null, 2),
-      compactAuto: compaction.auto ?? true,
-      compactPrune: compaction.prune ?? false,
-      tailTurns: optionalString(compaction.tail_turns),
-      preserveTokens: optionalString(compaction.preserve_recent_tokens),
-      reservedTokens: optionalString(compaction.reserved),
+      prompt: agent.prompt ?? defaultAgent.prompt,
+      instructions: (current().instructions ?? []).join("\n") || defaultAgent.prompt,
+      model: agent.model ?? defaultAgent.model,
+      variant: agent.variant ?? defaultAgent.variant,
+      temperature: optionalString(agent.temperature ?? defaultAgent.temperature),
+      topP: optionalString(agent.top_p ?? defaultAgent.top_p),
+      steps: optionalString(agent.steps ?? defaultAgent.steps),
+      permission: JSON.stringify(agent.permission ?? defaultAgent.permission, null, 2),
+      options: JSON.stringify(agent.options ?? defaultAgent.options, null, 2),
+      compactAuto: compaction.auto ?? defaultCompaction.auto,
+      compactPrune: compaction.prune ?? defaultCompaction.prune,
+      tailTurns: optionalString(compaction.tail_turns ?? defaultCompaction.tail_turns),
+      preserveTokens: optionalString(compaction.preserve_recent_tokens ?? defaultCompaction.preserve_recent_tokens),
+      reservedTokens: optionalString(compaction.reserved ?? defaultCompaction.reserved),
       saving: false,
     }
   }
   const [store, setStore] = createStore(values())
+
+  const resetStore = () => {
+    setStore({
+      prompt: defaultAgent.prompt,
+      instructions: "",
+      model: defaultAgent.model,
+      variant: defaultAgent.variant,
+      temperature: optionalString(defaultAgent.temperature),
+      topP: optionalString(defaultAgent.top_p),
+      steps: optionalString(defaultAgent.steps),
+      permission: JSON.stringify(defaultAgent.permission, null, 2),
+      options: JSON.stringify(defaultAgent.options, null, 2),
+      compactAuto: defaultCompaction.auto,
+      compactPrune: defaultCompaction.prune,
+      tailTurns: optionalString(defaultCompaction.tail_turns),
+      preserveTokens: optionalString(defaultCompaction.preserve_recent_tokens),
+      reservedTokens: optionalString(defaultCompaction.reserved),
+      saving: false,
+    })
+  }
 
   const reload = () => setStore(values())
   const save = async () => {
@@ -70,12 +110,12 @@ export const SettingsAgentV2: Component = () => {
       const permission = parseObject(store.permission, language.t("settings.agent.error.permission"))
       const options = parseObject(store.options, language.t("settings.agent.error.options"))
       const research: ResearchAgent = {
-        prompt: store.prompt.trim(),
+        prompt: store.prompt!.trim(),
         permission,
         options,
       }
-      if (store.model.trim()) research.model = store.model.trim()
-      if (store.variant.trim()) research.variant = store.variant.trim()
+      if (store.model!.trim()) research.model = store.model!.trim()
+      if (store.variant!.trim()) research.variant = store.variant!.trim()
       const temperature = parseNumber(store.temperature, 0, 2, false, language.t("settings.agent.error.temperature"))
       const topP = parseNumber(store.topP, 0, 1, false, language.t("settings.agent.error.topP"))
       const steps = parseNumber(store.steps, 1, undefined, true, language.t("settings.agent.error.steps"))
@@ -85,7 +125,7 @@ export const SettingsAgentV2: Component = () => {
 
       await serverSync().updateConfig({
         agent: { research },
-        instructions: [...new Set(store.instructions.split(/\r?\n/).map((item) => item.trim()).filter(Boolean))],
+        instructions: [...new Set(store.instructions!.split(/\r?\n/).map((item) => item.trim()).filter(Boolean))],
         compaction: {
           auto: store.compactAuto,
           prune: store.compactPrune,
@@ -122,6 +162,9 @@ export const SettingsAgentV2: Component = () => {
         <div class="flex gap-2">
           <ButtonV2 variant="outline" onClick={reload} disabled={store.saving}>
             {language.t("settings.agent.reload")}
+          </ButtonV2>
+          <ButtonV2 onClick={() => void resetStore()} disabled={store.saving}>
+            {language.t("settings.agent.reset")}
           </ButtonV2>
           <ButtonV2 onClick={() => void save()} disabled={store.saving}>
             {language.t("settings.agent.save")}
@@ -166,14 +209,14 @@ export const SettingsAgentV2: Component = () => {
             <AgentTextField
               title={language.t("settings.agent.model.title")}
               description={language.t("settings.agent.model.description")}
-              value={store.model}
+              value={store.model!}
               placeholder={language.t("settings.agent.model.placeholder")}
               onInput={(value) => setStore("model", value)}
             />
             <AgentTextField
               title={language.t("settings.agent.variant.title")}
               description={language.t("settings.agent.variant.description")}
-              value={store.variant}
+              value={store.variant!}
               placeholder={language.t("settings.agent.variant.placeholder")}
               onInput={(value) => setStore("variant", value)}
             />
@@ -212,7 +255,7 @@ export const SettingsAgentV2: Component = () => {
               description={language.t("settings.agent.permission.description")}
             >
               <TextareaV2
-                value={store.permission}
+                value={store.permission!}
                 onInput={(event) => setStore("permission", event.currentTarget.value)}
                 rows={10}
                 class="font-mono"
@@ -224,7 +267,7 @@ export const SettingsAgentV2: Component = () => {
               description={language.t("settings.agent.options.description")}
             >
               <TextareaV2
-                value={store.options}
+                value={store.options!}
                 onInput={(event) => setStore("options", event.currentTarget.value)}
                 rows={8}
                 class="font-mono"
@@ -252,7 +295,7 @@ export const SettingsAgentV2: Component = () => {
             <AgentTextField
               title={language.t("settings.agent.compaction.tailTurns.title")}
               description={language.t("settings.agent.compaction.tailTurns.description")}
-              value={store.tailTurns}
+              value={store.tailTurns!}
               placeholder={language.t("settings.agent.optional")}
               type="number"
               onInput={(value) => setStore("tailTurns", value)}
@@ -260,7 +303,7 @@ export const SettingsAgentV2: Component = () => {
             <AgentTextField
               title={language.t("settings.agent.compaction.preserveTokens.title")}
               description={language.t("settings.agent.compaction.preserveTokens.description")}
-              value={store.preserveTokens}
+              value={store.preserveTokens!}
               placeholder={language.t("settings.agent.optional")}
               type="number"
               onInput={(value) => setStore("preserveTokens", value)}
@@ -268,7 +311,7 @@ export const SettingsAgentV2: Component = () => {
             <AgentTextField
               title={language.t("settings.agent.compaction.reservedTokens.title")}
               description={language.t("settings.agent.compaction.reservedTokens.description")}
-              value={store.reservedTokens}
+              value={store.reservedTokens!}
               placeholder={language.t("settings.agent.optional")}
               type="number"
               onInput={(value) => setStore("reservedTokens", value)}

@@ -279,19 +279,17 @@ export const DESKTOP_MENU: DesktopMenu[] = [
     id: "help",
     labelKey: "desktop.menu.help",
     items: [
-      { type: "item", labelKey: "desktop.menu.documentation", href: "https://openresearch.ai/docs" },
-      { type: "item", labelKey: "desktop.menu.supportForum", href: "https://discord.com/invite/openresearch" },
       { type: "item", labelKey: "desktop.menu.exportLogs", command: "logs.export" },
       { type: "separator" },
       {
         type: "item",
         labelKey: "desktop.menu.shareFeedback",
-        href: "https://github.com/anomalyco/openresearch/issues/new?template=feature_request.yml",
+        href: "https://github.com/shamirbaral5180/OpenCode-----OpenResearch/issues/new?template=feature_request.yml",
       },
       {
         type: "item",
         labelKey: "desktop.menu.reportBug",
-        href: "https://github.com/anomalyco/openresearch/issues/new?template=bug_report.yml",
+        href: "https://github.com/shamirbaral5180/OpenCode-----OpenResearch/issues/new?template=bug_report.yml",
       },
     ],
   },

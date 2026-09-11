@@ -1184,6 +1184,7 @@ export const dict = {
   "settings.agent.error.tailTurns": "Recent turns must be a non-negative integer.",
   "settings.agent.error.preserveTokens": "Recent token budget must be a non-negative integer.",
   "settings.agent.error.reservedTokens": "Reserved token buffer must be a non-negative integer.",
+  "settings.agent.reset": "Reset",
 
   "settings.permissions.title": "Permissions",
   "settings.permissions.description": "Control what tools the server can use by default.",
