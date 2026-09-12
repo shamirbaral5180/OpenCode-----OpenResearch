@@ -10,6 +10,18 @@ The engineering instructions below apply only when the user explicitly requests 
 - The default branch in this repo is `dev`.
 - Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
 
+## Releases
+
+When bumping the desktop app to a new version, always complete the full release in the same change:
+
+1. Bump `version` in `packages/desktop/package.json`.
+2. Build and package: `$env:OPENRESEARCH_CHANNEL="prod"; bun run --cwd packages/desktop build`, then `bun run --cwd packages/desktop package:win`.
+3. Commit the version bump and push to `main`.
+4. Create and push the tag (`v<version>`).
+5. Create the GitHub release and upload the Windows installer (`OpenResearch-win-x64.exe`) with release notes and the installer's SHA-256.
+
+Never leave a version bump uncommitted, unpushed, or without a GitHub release and installer asset.
+
 ## Branch Names
 
 Use a short branch name of at most three words, separated by hyphens. Do not use slashes or type prefixes such as `feat/` or `fix/`.
