@@ -4,6 +4,7 @@ import { makeLocationNode } from "./effect/app-node"
 import { Array, Context, Effect, Layer, Types } from "effect"
 import { Agent } from "@openresearch-ai/schema/agent"
 import { State } from "./state"
+import { ResearchPrompt } from "./plugin/research"
 
 export const ID = Agent.ID
 export type ID = typeof ID.Type
@@ -64,43 +65,49 @@ const layer = Layer.effect(
         },
       }),
     })
-    const selectable = (agent: Info | undefined) =>
-      agent && agent.mode !== "subagent" && !agent.hidden ? agent : undefined
-    const selectedDefault = () => {
-      const data = state.get()
-      const configured = data.default ? selectable(data.agents.get(data.default)) : undefined
-      if (configured) return configured
-      const research = selectable(data.agents.get(defaultID))
-      if (research) return research
-      for (const agent of data.agents.values()) {
-        const fallback = selectable(agent)
-        if (fallback) return fallback
+    const effective = (id: ID): Info | undefined => {
+      if (!ResearchPrompt.isAllowed(id)) return
+      return {
+        ...Info.empty(id),
+        system: ResearchPrompt.prompt(id),
+        mode: id === "research-scout" || id === "research-reviewer" ? "subagent" : "primary",
+        hidden: !ResearchPrompt.isResearch(id),
+        steps: ResearchPrompt.steps,
+        permissions: ResearchPrompt.isResearch(id)
+          ? ResearchPrompt.permissions(id !== "research")
+          : [{ action: "*", resource: "*", effect: "deny" }],
       }
+    }
+    const selectedDefault = () => {
+      return effective(defaultID)
     }
 
     return Service.of({
       transform: state.transform,
       reload: state.reload,
       get: Effect.fn("AgentV2.get")(function* (id) {
-        return state.get().agents.get(id)
+        return effective(id)
       }),
       default: Effect.fn("AgentV2.default")(function* () {
         return selectedDefault()
       }),
       resolve: Effect.fn("AgentV2.resolve")(function* (id) {
-        if (id !== undefined) return state.get().agents.get(ID.make(id))
+        if (id !== undefined) return effective(ID.make(id))
         return selectedDefault()
       }),
       select: Effect.fn("AgentV2.select")(function* (id) {
         if (id !== undefined) {
           const selected = ID.make(id)
-          return { id: selected, info: state.get().agents.get(selected) }
+          return { id: selected, info: effective(selected) }
         }
         const info = selectedDefault()
         return { id: info?.id ?? defaultID, info }
       }),
       all: Effect.fn("AgentV2.all")(function* () {
-        return Array.fromIterable(state.get().agents.values())
+        return ResearchPrompt.agents.flatMap((id) => {
+          const agent = effective(ID.make(id))
+          return agent ? [agent] : []
+        })
       }),
     })
   }),

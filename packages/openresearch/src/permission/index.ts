@@ -6,6 +6,10 @@ import { Deferred, Effect, Layer, Context } from "effect"
 import os from "os"
 import { PermissionV1 } from "@openresearch-ai/core/v1/permission"
 import { EventV2Bridge } from "@/event-v2-bridge"
+import { ResearchPolicy } from "@openresearch-ai/core/v1/research-policy"
+import path from "path"
+import { FSUtil } from "@openresearch-ai/core/fs-util"
+import { ResearchArtifact } from "@openresearch-ai/core/research-artifact"
 
 export const Event = PermissionV1.Event
 
@@ -43,6 +47,7 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const events = yield* EventV2Bridge.Service
+    const fs = yield* FSUtil.Service
     const state = yield* InstanceState.make<State>(
       Effect.fn("Permission.state")(function* (ctx) {
         void ctx
@@ -67,9 +72,28 @@ const layer = Layer.effect(
     const ask = Effect.fn("Permission.ask")(function* (input: PermissionV1.AskInput) {
       const { approved, pending } = yield* InstanceState.get(state)
       const { ruleset, ...request } = input
+      const instance = yield* InstanceState.context
+      const policy = fromConfig(
+        ResearchPolicy.permissions(
+          `${path.relative(instance.worktree, path.join(instance.directory, "reports")).replaceAll("\\", "/")}/**`,
+        ),
+      )
       let needsAsk = false
 
       for (const pattern of request.patterns) {
+        if (
+          request.permission === "edit" &&
+          !(yield* ResearchArtifact.allowed(fs, instance.directory, path.resolve(instance.worktree, pattern)).pipe(
+            Effect.orElseSucceed(() => false),
+          ))
+        ) {
+          return yield* new PermissionV1.DeniedError({ ruleset: policy })
+        }
+        const fixed = evaluate(request.permission, pattern.replaceAll("\\", "/"), policy)
+        const configured = evaluate(request.permission, pattern, ruleset)
+        if (fixed.action === "deny" || configured.action === "deny") {
+          return yield* new PermissionV1.DeniedError({ ruleset: [...ruleset, ...policy] })
+        }
         const rule = evaluate(request.permission, pattern, ruleset, approved)
         yield* Effect.logInfo("evaluated", { permission: request.permission, pattern, action: rule })
         if (rule.action === "deny") {
@@ -218,6 +242,6 @@ export function visibleTools<T>(tools: Record<string, T>, ruleset: PermissionV1.
   return Object.fromEntries(Object.entries(tools).filter(([name]) => !hidden.has(name)))
 }
 
-export const node = LayerNode.make({ service: Service, layer: layer, deps: [EventV2Bridge.node] })
+export const node = LayerNode.make({ service: Service, layer: layer, deps: [EventV2Bridge.node, FSUtil.node] })
 
 export * as Permission from "."

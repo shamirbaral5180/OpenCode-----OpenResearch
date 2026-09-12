@@ -1,5 +1,6 @@
 import { Config } from "@/config/config"
 import { Provider } from "@/provider/provider"
+import { ResearchPolicy } from "@openresearch-ai/core/v1/research-policy"
 import * as InstanceState from "@/effect/instance-state"
 import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
@@ -12,7 +13,9 @@ export const configHandlers = HttpApiBuilder.group(InstanceHttpApi, "config", (h
     const configSvc = yield* Config.Service
 
     const get = Effect.fn("ConfigHttpApi.get")(function* () {
-      return yield* configSvc.get()
+      // Display projection only: HTTP reads expose the effective locked research policy.
+      // Internal Config.Service reads stay raw so the rest of the runtime is unaffected.
+      return ResearchPolicy.effective(yield* configSvc.get())
     })
 
     const update = Effect.fn("ConfigHttpApi.update")(function* (ctx) {

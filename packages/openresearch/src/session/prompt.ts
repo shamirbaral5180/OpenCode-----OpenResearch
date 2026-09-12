@@ -81,6 +81,13 @@ IMPORTANT:
 
 const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested structured output. You MUST use the StructuredOutput tool to provide your final response. Do NOT respond with plain text - you MUST call the StructuredOutput tool with your answer formatted according to the schema.`
 
+const RESEARCH_AUDIT_PROMPT = `Verification pass required. Before finalizing, audit the work so far against the evidence ledger and the verification tools.
+- For every consequential externally verifiable claim, resolve its DOI with resolve_doi, check its URL with check_url, and verify any direct quotation with verify_quote. Use verify_citation for an end-to-end check.
+- Record each source and claim with the evidence tool and set an honest verdict: verified, partial, unverified, or contradicted.
+- Correct or remove any claim you cannot verify, and state plainly that it is unverified instead of asserting it.
+- If a report was requested, finalize it only through report_write. If report_write reports errors, fix them and retry.
+- Then give your final answer to the user. Do not merely restate the audit plan.`
+
 function mcpResourceBase64Size(value: string) {
   const trimmed = value.replace(/\s/g, "")
   const padding = trimmed.endsWith("==") ? 2 : trimmed.endsWith("=") ? 1 : 0
@@ -1083,6 +1090,7 @@ const layer = Layer.effect(
         const ctx = yield* InstanceState.context
         let structured: unknown
         let step = 0
+        let audited = false
         const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
 
         while (true) {
@@ -1124,6 +1132,36 @@ const layer = Layer.effect(
                 tool: orphan.tool,
                 callID: orphan.callID,
               })
+            }
+            // Enforced research audit: before the primary research agent finalizes,
+            // run one bounded verification turn that must audit claims against the ledger.
+            if (
+              !audited &&
+              flags.researchAudit === "enforced" &&
+              lastUser.agent === "research" &&
+              lastAssistant.agent === "research" &&
+              !lastAssistant.error
+            ) {
+              audited = true
+              const auditMessage = yield* sessions.updateMessage({
+                id: MessageID.ascending(),
+                role: "user" as const,
+                sessionID,
+                time: { created: Date.now() },
+                agent: lastUser.agent,
+                model: lastUser.model,
+                system: lastUser.system,
+              })
+              yield* sessions.updatePart({
+                type: "text",
+                id: PartID.ascending(),
+                messageID: auditMessage.id,
+                sessionID,
+                synthetic: true,
+                text: RESEARCH_AUDIT_PROMPT,
+              })
+              step = 0
+              continue
             }
             yield* Effect.logInfo("exiting loop", { "session.id": sessionID })
             break
@@ -1254,19 +1292,12 @@ const layer = Layer.effect(
 
             yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
 
-            const [skills, env, instructions, mcpInstructions, modelMsgs] = yield* Effect.all([
-              sys.skills(agent),
+            const [env, mcpInstructions, modelMsgs] = yield* Effect.all([
               sys.environment(model),
-              instruction.system().pipe(Effect.orDie),
-              sys.mcp(agent, session.permission),
+              sys.mcp(agent),
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
-            const system = [
-              ...env,
-              ...instructions,
-              ...(mcpInstructions ? [mcpInstructions] : []),
-              ...(skills ? [skills] : []),
-            ]
+            const system = [...env, ...(mcpInstructions ? [mcpInstructions] : [])]
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({

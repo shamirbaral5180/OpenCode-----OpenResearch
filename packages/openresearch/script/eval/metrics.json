@@ -1,0 +1,35 @@
+{
+  "summary": {
+    "count": 2,
+    "citationCoverage": 0.5,
+    "verifiedShare": 0.834,
+    "subquestionCoverage": 0.5,
+    "validRate": 0.5
+  },
+  "perCase": [
+    {
+      "citationCoverage": 1,
+      "verifiedShare": 0.667,
+      "reportValid": true,
+      "errors": [],
+      "warnings": [],
+      "uncitedConsequential": 0,
+      "subquestionCoverage": 1
+    },
+    {
+      "citationCoverage": 0,
+      "verifiedShare": 1,
+      "reportValid": false,
+      "errors": [
+        "missing required section: Counterevidence",
+        "citation [S9] has no matching evidence ledger record",
+        "1 verified evidence record(s) are not cited in the report"
+      ],
+      "warnings": [
+        "no contradicted records; confirm counterevidence was actually sought"
+      ],
+      "uncitedConsequential": 1,
+      "subquestionCoverage": 0
+    }
+  ]
+}

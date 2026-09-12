@@ -38,6 +38,10 @@ export class Service extends ConfigService.Service<Service>()("@openresearch/Run
     legacy: bool("OPENRESEARCH_EXPERIMENTAL_PARALLEL"),
   }).pipe(Config.map((flags) => flags.enabled || flags.legacy)),
   enableExperimentalModels: bool("OPENRESEARCH_ENABLE_EXPERIMENTAL_MODELS"),
+  researchAudit: Config.string("OPENRESEARCH_RESEARCH_AUDIT").pipe(
+    Config.withDefault("assisted"),
+    Config.map((value) => (value === "enforced" || value === "off" ? value : "assisted")),
+  ),
   enableQuestionTool: bool("OPENRESEARCH_ENABLE_QUESTION_TOOL"),
   experimentalReferences: enabledByExperimental("OPENRESEARCH_EXPERIMENTAL_REFERENCES"),
   experimentalBackgroundSubagents: enabledByExperimental("OPENRESEARCH_EXPERIMENTAL_BACKGROUND_SUBAGENTS"),

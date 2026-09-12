@@ -36,7 +36,39 @@
   top: 0;
   z-index: 10;
   padding: 40px 40px 32px;
-  background: linear-gradient(to bottom, var(--v2-background-bg-base) calc(100% - 24px), transparent);
+  background: var(--v2-background-bg-base);
+  box-shadow: 0 1px 0 0 var(--v2-border-border-muted);
+}
+
+.settings-v2-tab-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-v2-locked-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 530;
+  line-height: 1;
+  color: var(--v2-text-text-muted);
+  background: var(--v2-background-bg-layer-02);
+  box-shadow: inset 0 0 0 0.5px var(--v2-border-border-muted);
+}
+
+.settings-v2-note {
+  margin: 0;
+  max-width: 760px;
+  font-size: 13px;
+  font-weight: 440;
+  line-height: 20px;
+  color: var(--v2-text-text-muted);
 }
 
 .settings-v2-tab-title {
@@ -68,6 +100,153 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+}
+
+.settings-v2-section > * {
+  min-width: 0;
+}
+
+.settings-v2-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px 20px;
+  border-radius: 8px;
+  background-color: var(--v2-background-bg-layer-01);
+  box-shadow: inset 0 0 0 0.5px var(--v2-border-border-muted);
+}
+
+.settings-v2-info-title {
+  font-size: 13px;
+  font-weight: 530;
+  line-height: 1;
+  color: var(--v2-text-text-base);
+}
+
+.settings-v2-info-body {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 440;
+  line-height: 20px;
+  color: var(--v2-text-text-muted);
+}
+
+.settings-v2-policy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: 8px;
+  background-color: var(--v2-background-bg-layer-01);
+  box-shadow: inset 0 0 0 0.5px var(--v2-border-border-muted);
+}
+
+.settings-v2-policy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 0.5px solid var(--v2-border-border-muted);
+}
+
+.settings-v2-policy-header-title {
+  font-size: 13px;
+  font-weight: 530;
+  line-height: 1;
+  color: var(--v2-text-text-base);
+}
+
+.settings-v2-policy-header-note {
+  min-width: 0;
+  flex: 1;
+  text-align: end;
+  font-size: 12px;
+  font-weight: 440;
+  line-height: 16px;
+  color: var(--v2-text-text-muted);
+}
+
+.settings-v2-policy-body {
+  margin: 0;
+  max-height: 420px;
+  overflow: auto;
+  padding: 16px;
+  font-family: var(--font-family-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--v2-text-text-base);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  tab-size: 2;
+  user-select: text;
+}
+
+.settings-v2-policy-body:focus-visible {
+  outline: 2px solid var(--v2-border-border-focus);
+  outline-offset: -2px;
+}
+
+.settings-v2-config-editor {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.settings-v2-config-editor [data-component="textarea-v2"] {
+  width: 100%;
+}
+
+.settings-v2-config-editor textarea {
+  width: 100%;
+  min-height: 320px;
+  resize: vertical;
+  font-family: var(--font-family-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.settings-v2-config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-v2-details {
+  overflow: hidden;
+  border-radius: 8px;
+  background-color: var(--v2-background-bg-layer-01);
+  box-shadow: inset 0 0 0 0.5px var(--v2-border-border-muted);
+}
+
+.settings-v2-details > summary {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 530;
+  line-height: 1.4;
+  color: var(--v2-text-text-base);
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-v2-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-v2-details[open] > summary {
+  border-bottom: 0.5px solid var(--v2-border-border-muted);
+}
+
+.settings-v2-details .settings-v2-policy {
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .settings-v2-section-title {

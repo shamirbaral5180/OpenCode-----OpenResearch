@@ -1,4 +1,5 @@
 import { Config } from "@/config/config"
+import { ResearchPolicy } from "@openresearch-ai/core/v1/research-policy"
 import { GlobalBus, type GlobalEvent as GlobalBusEvent } from "@/bus/global"
 import { EffectBridge } from "@/effect/bridge"
 import { EventV2 } from "@openresearch-ai/core/event"
@@ -72,7 +73,9 @@ export const globalHandlers = HttpApiBuilder.group(RootHttpApi, "global", (handl
     })
 
     const configGet = Effect.fn("GlobalHttpApi.configGet")(function* () {
-      return yield* config.getGlobal()
+      // Display projection only: HTTP reads expose the effective locked research policy.
+      // Internal Config.Service reads stay raw so the rest of the runtime is unaffected.
+      return ResearchPolicy.effective(yield* config.getGlobal())
     })
 
     const configUpdate = Effect.fn("GlobalHttpApi.configUpdate")(function* (ctx) {

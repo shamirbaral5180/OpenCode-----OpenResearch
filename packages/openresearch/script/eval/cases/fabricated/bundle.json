@@ -1,0 +1,13 @@
+{
+  "expectedSubquestions": ["What is the effect size?"],
+  "report": "## Question\nDoes intervention X reduce outcome Y?\n\n## Scope and As-of Date\nPublished literature through 2026.\n\n## Method\nSearched PubMed.\n\n## Findings\nIntervention X clearly reduces outcome Y [S9].\n\n## Limitations\nNone identified.\n\n## Source Register\nSee sources.md.\n",
+  "evidence": [
+    {
+      "source_id": "S1",
+      "claim_id": "C1",
+      "claim": "Intervention X reduces outcome Y",
+      "source": { "doi": "10.1000/a", "accessLevel": "full-text", "retrievedAt": "2026-01-01T00:00:00.000Z" },
+      "verdict": "verified"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ import { SettingsServersV2 } from "./servers"
 import { SettingsModelInputV2 } from "./model-input"
 import { SettingsAIContextV2 } from "./ai-context"
 import { SettingsAgentV2 } from "./agent-settings"
+import { SettingsConfigFileV2 } from "./config-file"
 import { useDialog } from "@openresearch-ai/ui/context/dialog"
 import { useLayout } from "@/context/layout"
 import { useTabs } from "@/context/tabs"
@@ -86,6 +87,10 @@ export const DialogSettings: Component<{
                       <Icon name="eye" />
                       {language.t("settings.tab.modelInput")}
                     </TabsV2.Trigger>
+                    <TabsV2.Trigger value="config-file">
+                      <Icon name="code" />
+                      {language.t("settings.tab.configFile")}
+                    </TabsV2.Trigger>
                   </div>
                 </div>
 
@@ -131,6 +136,9 @@ export const DialogSettings: Component<{
         </TabsV2.Content>
         <TabsV2.Content value="model-input" class="settings-v2-panel">
           <SettingsModelInputV2 sessionID={props.sessionID} directory={directory} />
+        </TabsV2.Content>
+        <TabsV2.Content value="config-file" class="settings-v2-panel">
+          <SettingsConfigFileV2 />
         </TabsV2.Content>
         <TabsV2.Content value="providers" class="settings-v2-panel">
           <SettingsProvidersV2 directory={directory} onBack={showProviders} />

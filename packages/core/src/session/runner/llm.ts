@@ -180,6 +180,7 @@ const layer = Layer.effect(
       if (session.location.directory !== location.directory || session.location.workspaceID !== location.workspaceID)
         return yield* Effect.interrupt
       const agent = yield* agents.select(session.agent)
+      if (!agent.info) return yield* Effect.die(`Agent is unavailable under the locked research policy: ${agent.id}`)
       const initialized = yield* SessionContextEpoch.initialize(db, loadSystemContext(agent), session.id)
       const toolFibers = yield* FiberSet.make<void, ToolOutputStore.Error>()
       let needsContinuation = false
@@ -212,7 +213,7 @@ const layer = Layer.effect(
           },
         },
         providerOptions: { openai: { promptCacheKey } },
-        system: [agent.info?.system, system.baseline]
+        system: [system.baseline, agent.info.system]
           .filter((part): part is string => part !== undefined && part.length > 0)
           .map(SystemPart.make),
         messages: [...toLLMMessages(context, model), ...(isLastStep ? [Message.assistant(MAX_STEPS_PROMPT)] : [])],

@@ -8,12 +8,12 @@ import type { Agent } from "@/agent/agent"
 import type { MessageV2 } from "../message-v2"
 import type { Provider } from "@/provider/provider"
 import { ProviderTransform } from "@/provider/transform"
-import { SystemPrompt } from "../system"
 import { InstallationVersion } from "@openresearch-ai/core/installation/version"
 import { Effect, Record } from "effect"
 import { jsonSchema, tool as aiTool, type ModelMessage, type Tool } from "ai"
 import type { Plugin } from "@/plugin"
 import { mergeDeep } from "remeda"
+import { ResearchPrompt } from "@openresearch-ai/core/plugin/research"
 
 const USER_AGENT = `openresearch/${InstallationVersion}`
 
@@ -55,15 +55,7 @@ const mergeOptions = (target: Record<string, any>, source: Record<string, any> |
 
 export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: PrepareInput) {
   const isOpenaiOauth = input.provider.id === "openai" && input.auth?.type === "oauth"
-  const system = [
-    [
-      ...(input.agent.prompt ? [input.agent.prompt] : SystemPrompt.provider(input.model)),
-      ...input.system,
-      ...(input.user.system ? [input.user.system] : []),
-    ]
-      .filter((x) => x)
-      .join("\n"),
-  ]
+  const system = [[ResearchPrompt.prompt(input.agent.name), ...input.system].filter((x) => x).join("\n")]
 
   const header = system[0]
   yield* input.plugin.trigger(
@@ -71,6 +63,8 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
     { sessionID: input.sessionID, model: input.model },
     { system },
   )
+  // Reassert the application policy after extension hooks, for both native and AI SDK transports.
+  system.push(ResearchPrompt.prompt(input.agent.name))
   if (system.length > 2 && system[0] === header) {
     const rest = system.slice(1)
     system.length = 0
@@ -130,6 +124,9 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
       options,
     },
   )
+  params.temperature = input.model.capabilities.temperature ? ResearchPrompt.temperature : undefined
+  params.topP = ResearchPrompt.topP
+  if (isOpenaiOauth) params.options.instructions = system.join("\n")
 
   const { headers } = yield* input.plugin.trigger(
     "chat.headers",
@@ -206,10 +203,7 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
 })
 
 function resolveTools(input: Pick<PrepareInput, "tools" | "agent" | "permission" | "user">) {
-  const disabled = Permission.disabled(
-    Object.keys(input.tools),
-    Permission.merge(input.agent.permission, input.permission ?? []),
-  )
+  const disabled = Permission.disabled(Object.keys(input.tools), input.agent.permission)
   return Record.filter(input.tools, (_, k) => input.user.tools?.[k] !== false && !disabled.has(k))
 }
 

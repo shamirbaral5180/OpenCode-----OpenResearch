@@ -15,8 +15,9 @@ import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import { ResearchPrompt } from "@openresearch-ai/core/plugin/research"
+import { ResearchPolicy } from "@openresearch-ai/core/v1/research-policy"
 import { Permission } from "@/permission"
-import { mergeDeep, pipe, sortBy, values } from "remeda"
+import { pipe, sortBy, values } from "remeda"
 import { Global } from "@openresearch-ai/core/global"
 import path from "path"
 import { Plugin } from "@/plugin"
@@ -326,33 +327,24 @@ const layer = Layer.effect(
           },
         }
 
-        for (const [key, value] of Object.entries(cfg.agent ?? {})) {
-          if (value.disable) {
-            delete agents[key]
+        for (const name of Object.keys(agents)) {
+          if (!ResearchPrompt.isAllowed(name)) {
+            delete agents[name]
             continue
           }
-          let item = agents[key]
-          if (!item)
-            item = agents[key] = {
-              name: key,
-              mode: "all",
-              permission: Permission.merge(defaults, user),
-              options: {},
-              native: false,
-            }
-          if (value.model) item.model = Provider.parseModel(value.model)
-          item.variant = value.variant ?? item.variant
-          item.prompt = value.prompt ?? item.prompt
-          item.description = value.description ?? item.description
-          item.temperature = value.temperature ?? item.temperature
-          item.topP = value.top_p ?? item.topP
-          item.mode = value.mode ?? item.mode
-          item.color = value.color ?? item.color
-          item.hidden = value.hidden ?? item.hidden
-          item.name = value.name ?? item.name
-          item.steps = value.steps ?? item.steps
-          item.options = mergeDeep(item.options, value.options ?? {})
-          item.permission = Permission.merge(item.permission, Permission.fromConfig(value.permission ?? {}))
+          const item = agents[name]
+          item.prompt = ResearchPrompt.prompt(name)
+          item.steps = ResearchPrompt.steps
+          item.temperature = ResearchPrompt.temperature
+          item.topP = ResearchPrompt.topP
+          item.permission = Permission.fromConfig(
+            ResearchPrompt.isResearch(name)
+              ? ResearchPolicy.permissions(
+                  `${path.relative(ctx.worktree, path.join(ctx.directory, "reports")).replaceAll("\\", "/")}/**`,
+                  name !== "research",
+                )
+              : { "*": "deny" },
+          )
         }
 
         // Ensure Truncate.GLOB is allowed unless explicitly configured
@@ -381,20 +373,7 @@ const layer = Layer.effect(
         })
 
         const defaultInfo = Effect.fnUntraced(function* () {
-          const c = yield* config.get()
-          if (c.default_agent) {
-            const agent = agents[c.default_agent]
-            if (!agent) throw new Error(`default agent "${c.default_agent}" not found`)
-            if (agent.mode === "subagent") throw new Error(`default agent "${c.default_agent}" is a subagent`)
-            if (agent.hidden !== true) return agent
-            // Old configured defaults should fall back rather than prevent startup.
-            // Setting hidden: false explicitly restores legacy agent selection.
-            if (c.default_agent !== "build" && c.default_agent !== "plan")
-              throw new Error(`default agent "${c.default_agent}" is hidden`)
-          }
-          const visible = Object.values(agents).find((a) => a.mode !== "subagent" && a.hidden !== true)
-          if (!visible) throw new Error("no primary visible agent found")
-          return visible
+          return agents.research
         })
 
         const defaultAgent = Effect.fnUntraced(function* () {

@@ -1,6 +1,6 @@
 export * as SessionCompaction from "./compaction"
 
-import { LLM, LLMError, LLMEvent, Message, type LLMRequest, type Model } from "@openresearch-ai/llm"
+import { LLM, LLMError, LLMEvent, Message, SystemPart, type LLMRequest, type Model } from "@openresearch-ai/llm"
 import { DateTime, Effect, Stream } from "effect"
 import type { Config } from "../config"
 import type { EventV2 } from "../event"
@@ -8,9 +8,10 @@ import { SessionEvent } from "./event"
 import { SessionMessage } from "./message"
 import { SessionSchema } from "./schema"
 import { Token } from "../util/token"
+import { ResearchPrompt } from "../plugin/research"
 
 const DEFAULT_BUFFER = 20_000
-const DEFAULT_KEEP_TOKENS = 8_000
+const DEFAULT_KEEP_TOKENS = ResearchPrompt.compactionSettings.preserve_recent_tokens
 const TOOL_OUTPUT_MAX_CHARS = 2_000
 const SUMMARY_OUTPUT_TOKENS = 4_096
 const SUMMARY_TEMPLATE = `Output exactly the Markdown structure shown inside <template> and keep the section order unchanged. Do not include the <template> tags in your response.
@@ -120,18 +121,8 @@ const serialize = (message: SessionMessage.Message) => {
   return ""
 }
 
-const settings = (documents: readonly Config.Entry[]) => {
-  const configured = documents
-    .filter((entry): entry is Config.Document => entry.type === "document")
-    .flatMap((entry) => (entry.info.compaction ? [entry.info.compaction] : []))
-  return configured.reduce<Settings>(
-    (result, current) => ({
-      auto: current.auto ?? result.auto,
-      buffer: current.buffer ?? result.buffer,
-      tokens: current.keep?.tokens ?? result.tokens,
-    }),
-    { auto: true, buffer: DEFAULT_BUFFER, tokens: DEFAULT_KEEP_TOKENS },
-  )
+const settings = () => {
+  return { auto: true, buffer: DEFAULT_BUFFER, tokens: DEFAULT_KEEP_TOKENS } satisfies Settings
 }
 
 const select = (
@@ -174,7 +165,7 @@ export const buildPrompt = (input: { readonly previousSummary?: string; readonly
 }
 
 export const make = (dependencies: Dependencies) => {
-  const config = settings(dependencies.config)
+  const config = settings()
   const compactAfterOverflow = Effect.fn("SessionCompaction.compactAfterOverflow")(function* (input: Input) {
     const context = input.model.route.defaults.limits?.context
     if (context === undefined || context <= 0) return false
@@ -202,6 +193,7 @@ export const make = (dependencies: Dependencies) => {
       .stream(
         LLM.request({
           model: input.model,
+          system: [SystemPart.make(ResearchPrompt.prompt("compaction"))],
           http: input.request.http,
           messages: [Message.user(summaryPrompt)],
           tools: [],

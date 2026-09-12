@@ -27,6 +27,12 @@ import { Provider } from "@/provider/provider"
 
 import { WebSearchTool } from "./websearch"
 import { LspTool } from "./lsp"
+import { ResolveDoiTool } from "./resolve_doi"
+import { CheckUrlTool } from "./check_url"
+import { VerifyQuoteTool } from "./verify_quote"
+import { VerifyCitationTool } from "./verify_citation"
+import { EvidenceTool } from "./evidence"
+import { ReportWriteTool } from "./report-write"
 import * as Truncate from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
 import { Glob } from "@openresearch-ai/core/util/glob"
@@ -114,6 +120,12 @@ const layer = Layer.effect(
     const greptool = yield* GrepTool
     const patchtool = yield* ApplyPatchTool
     const skilltool = yield* SkillTool
+    const resolveDoi = yield* ResolveDoiTool
+    const checkUrl = yield* CheckUrlTool
+    const verifyQuote = yield* VerifyQuoteTool
+    const verifyCitation = yield* VerifyCitationTool
+    const evidence = yield* EvidenceTool
+    const reportWrite = yield* ReportWriteTool
     const agent = yield* Agent.Service
     const codeMode = flags.experimentalCodeMode ? yield* Effect.promise(() => import("./code-mode")) : undefined
     const codeModeTool = codeMode ? yield* codeMode.CodeModeTool : undefined
@@ -223,6 +235,12 @@ const layer = Layer.effect(
           question: Tool.init(question),
           lsp: Tool.init(lsptool),
           plan: Tool.init(plan),
+          resolveDoi: Tool.init(resolveDoi),
+          checkUrl: Tool.init(checkUrl),
+          verifyQuote: Tool.init(verifyQuote),
+          verifyCitation: Tool.init(verifyCitation),
+          evidence: Tool.init(evidence),
+          reportWrite: Tool.init(reportWrite),
           ...(codeModeTool ? { execute: Tool.init(codeModeTool) } : {}),
         })
 
@@ -243,6 +261,12 @@ const layer = Layer.effect(
             tool.search,
             tool.skill,
             tool.patch,
+            tool.resolveDoi,
+            tool.checkUrl,
+            tool.verifyQuote,
+            tool.verifyCitation,
+            tool.evidence,
+            tool.reportWrite,
             ...(tool.execute ? [tool.execute] : []),
             ...(flags.experimentalLspTool ? [tool.lsp] : []),
             ...(flags.experimentalPlanMode && flags.client === "cli" ? [tool.plan] : []),

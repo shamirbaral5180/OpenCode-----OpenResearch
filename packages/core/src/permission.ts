@@ -10,6 +10,9 @@ import { SessionV2 } from "./session"
 import { SessionStore } from "./session/store"
 import { Wildcard } from "./util/wildcard"
 import { PermissionSaved } from "./permission/saved"
+import { ResearchArtifact } from "./research-artifact"
+import { FSUtil } from "./fs-util"
+import path from "path"
 
 export { Effect, Rule, Ruleset } from "@openresearch-ai/schema/permission"
 const missingAgentPermissions: Permission.Ruleset = [{ action: "*", resource: "*", effect: "deny" }]
@@ -110,6 +113,7 @@ const layer = Layer.effect(
   Service,
   EffectRuntime.gen(function* () {
     const events = yield* EventV2.Service
+    const fs = yield* FSUtil.Service
     const location = yield* Location.Service
     const agents = yield* AgentV2.Service
     const sessions = yield* SessionStore.Service
@@ -154,6 +158,17 @@ const layer = Layer.effect(
 
     const evaluateInput = EffectRuntime.fnUntraced(function* (input: AssertInput) {
       const rules = yield* configured(input.sessionID, input.agent)
+      if (input.action === "edit") {
+        for (const resource of input.resources) {
+          if (
+            !(yield* ResearchArtifact.allowed(fs, location.directory, path.resolve(location.directory, resource)).pipe(
+              EffectRuntime.orElseSucceed(() => false),
+            ))
+          ) {
+            return { effect: "deny" as const, rules: missingAgentPermissions }
+          }
+        }
+      }
       if (denied(input, rules)) return { effect: "deny" as const, rules }
       const all = [...rules, ...(yield* savedRules())]
       const effects = input.resources.map((resource) => evaluate(input.action, resource, all).effect)
@@ -306,5 +321,5 @@ export const locationLayer = layer.pipe(Layer.provideMerge(AgentV2.locationLayer
 export const node = makeLocationNode({
   service: Service,
   layer,
-  deps: [EventV2.node, Location.node, AgentV2.node, SessionStore.node, PermissionSaved.node],
+  deps: [EventV2.node, Location.node, AgentV2.node, SessionStore.node, PermissionSaved.node, FSUtil.node],
 })

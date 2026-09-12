@@ -638,6 +638,7 @@ const layer = Layer.effect(
     })
 
     const update = Effect.fn("Config.update")(function* (config: Info) {
+      ResearchPolicy.assertWritable(config)
       const dir = yield* InstanceState.directory
       const file = path.join(dir, "config.json")
       const existing = yield* loadFile(file)
@@ -656,6 +657,7 @@ const layer = Layer.effect(
     })
 
     const updateGlobal = Effect.fn("Config.updateGlobal")(function* (config: Info) {
+      ResearchPolicy.assertWritable(config)
       const file = globalConfigFile()
       const before = (yield* readConfigFile(file)) ?? "{}"
       const patch = writableGlobal(config)
@@ -701,3 +703,5 @@ export const node = LayerNode.make({
 })
 
 export * as Config from "./config"
+
+import { ResearchPolicy } from "@openresearch-ai/core/v1/research-policy"

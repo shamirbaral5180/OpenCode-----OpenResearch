@@ -922,7 +922,8 @@ export const dict = {
   "settings.general.row.appearance.title": "Appearance",
   "settings.general.row.appearance.description": "Customise how OpenResearch looks on your device",
   "settings.general.row.colorScheme.title": "Color scheme",
-  "settings.general.row.colorScheme.description": "Choose whether OpenResearch follows the system, light, or dark theme",
+  "settings.general.row.colorScheme.description":
+    "Choose whether OpenResearch follows the system, light, or dark theme",
   "settings.general.row.theme.title": "Theme",
   "settings.general.row.theme.description": "Customise how OpenResearch is themed.",
   "settings.general.row.font.title": "Code Font",
@@ -1088,7 +1089,8 @@ export const dict = {
   "settings.mcp.description": "MCP settings will be configurable here.",
 
   "settings.systemPrompt.title": "Research agent system prompt",
-  "settings.systemPrompt.description": "Override the system prompt used by the primary research agent. Leave empty to use the built-in prompt.",
+  "settings.systemPrompt.description":
+    "Override the system prompt used by the primary research agent. Leave empty to use the built-in prompt.",
   "settings.systemPrompt.placeholder": "Enter the research system prompt...",
   "settings.systemPrompt.save": "Save prompt",
   "settings.systemPrompt.reset": "Reset to built-in",
@@ -1101,7 +1103,8 @@ export const dict = {
   "settings.skills.paths.description": "Additional folders that contain SKILL.md files to load as skills.",
   "settings.research.skill.paths.placeholder": "/path/to/skills",
   "settings.skills.urls.title": "Skill catalogs",
-  "settings.skills.urls.description": "Remote URLs that provide a skill index (e.g., https://example.com/.well-known/skills/).",
+  "settings.skills.urls.description":
+    "Remote URLs that provide a skill index (e.g., https://example.com/.well-known/skills/).",
   "settings.research.skill.urls.placeholder": "https://example.com/.well-known/skills/",
   "settings.research.skill.add": "Add",
   "settings.research.skill.added.title": "Skill added",
@@ -1110,23 +1113,32 @@ export const dict = {
   "settings.modelInput.refresh": "Refresh",
   "settings.modelInput.noSession": "Open Settings from a research session to inspect its model input.",
   "settings.modelInput.loading": "Loading the latest model input...",
-  "settings.modelInput.empty": "No model input has been captured for this session since OpenResearch started. Send a message, then refresh this page.",
+  "settings.modelInput.empty":
+    "No model input has been captured for this session since OpenResearch started. Send a message, then refresh this page.",
   "settings.modelInput.loadFailed": "Could not load the model input: {{error}}",
   "settings.modelInput.request.title": "Request details",
-  "settings.modelInput.request.description": "The model, agent, generation controls, and sanitized provider options used for the latest request.",
+  "settings.modelInput.request.description":
+    "The model, agent, generation controls, and sanitized provider options used for the latest request.",
   "settings.modelInput.system.title": "Effective system prompt",
-  "settings.modelInput.system.description": "The combined agent prompt, environment, instruction files, skill guidance, and other system context.",
+  "settings.modelInput.system.description":
+    "The combined agent prompt, environment, instruction files, skill guidance, and other system context.",
   "settings.modelInput.system.part": "System part {{number}}",
   "settings.modelInput.messages.title": "Messages and files",
-  "settings.modelInput.messages.description": "The resolved conversation, generated reminders, tool results, attachments, selected file ranges, and file contents passed to the model.",
+  "settings.modelInput.messages.description":
+    "The resolved conversation, generated reminders, tool results, attachments, selected file ranges, and file contents passed to the model.",
   "settings.modelInput.tools.title": "Available tools",
-  "settings.modelInput.tools.description": "{{count}} enabled tool definitions, including their descriptions and input schemas.",
+  "settings.modelInput.tools.description":
+    "{{count}} enabled tool definitions, including their descriptions and input schemas.",
   "settings.aiContext.architecture.title": "Context architecture",
-  "settings.aiContext.architecture.description": "How OpenResearch currently retrieves and retains information for model requests.",
-  "settings.aiContext.retrieval": "Retrieval uses instruction files and patterns, skills, attachments, session history, and MCP tools or resources. No vector RAG store is currently implemented.",
-  "settings.aiContext.memory": "Memory is the current session transcript plus configurable compaction. There is no separate persistent semantic-memory database.",
+  "settings.aiContext.architecture.description":
+    "How OpenResearch currently retrieves and retains information for model requests.",
+  "settings.aiContext.retrieval":
+    "Retrieval uses instruction files and patterns, skills, attachments, session history, and MCP tools or resources. No vector RAG store is currently implemented.",
+  "settings.aiContext.memory":
+    "Memory is the current session transcript plus configurable compaction. There is no separate persistent semantic-memory database.",
   "settings.aiContext.config.title": "Advanced AI configuration",
-  "settings.aiContext.config.description": "Edit research-agent parameters, instruction sources, skills, MCP servers, tools, attachment limits, tool-output retention, compaction, and related experimental controls. Changes are validated by the server before being saved.",
+  "settings.aiContext.config.description":
+    "Edit research-agent parameters, instruction sources, skills, MCP servers, tools, attachment limits, tool-output retention, compaction, and related experimental controls. Changes are validated by the server before being saved.",
   "settings.aiContext.reload": "Reload",
   "settings.aiContext.save": "Save configuration",
   "settings.aiContext.saved": "AI context configuration saved",
@@ -1142,40 +1154,52 @@ export const dict = {
   "settings.agent.section.memory": "Context retention",
   "settings.agent.section.skills": "Research skills",
   "settings.agent.prompt.title": "System prompt",
-  "settings.agent.prompt.description": "Direct how the research agent plans investigations, uses tools and resources, evaluates evidence, cites sources, and presents findings.",
+  "settings.agent.prompt.description":
+    "Direct how the research agent plans investigations, uses tools and resources, evaluates evidence, cites sources, and presents findings.",
   "settings.agent.prompt.placeholder": "Describe how the research agent should investigate and answer...",
   "settings.agent.instructions.title": "Instruction sources",
-  "settings.agent.instructions.description": "Additional instruction file paths or glob patterns included in the effective system context. Enter one source per line.",
+  "settings.agent.instructions.description":
+    "Additional instruction file paths or glob patterns included in the effective system context. Enter one source per line.",
   "settings.agent.instructions.placeholder": "AGENTS.md\nresearch-guides/**/*.md",
   "settings.agent.model.title": "Model override",
-  "settings.agent.model.description": "Optional provider/model identifier used specifically by the research agent. Leave empty to use the selected default model.",
+  "settings.agent.model.description":
+    "Optional provider/model identifier used specifically by the research agent. Leave empty to use the selected default model.",
   "settings.agent.model.placeholder": "provider/model",
   "settings.agent.variant.title": "Model variant",
   "settings.agent.variant.description": "Optional provider-defined model variant for the research agent.",
   "settings.agent.variant.placeholder": "Variant name",
   "settings.agent.temperature.title": "Temperature",
-  "settings.agent.temperature.description": "Controls response randomness from 0 to 2. Leave empty to use the provider default.",
+  "settings.agent.temperature.description":
+    "Controls response randomness from 0 to 2. Leave empty to use the provider default.",
   "settings.agent.temperature.placeholder": "0-2",
   "settings.agent.topP.title": "Top P",
   "settings.agent.topP.description": "Controls nucleus sampling from 0 to 1. Leave empty to use the provider default.",
   "settings.agent.topP.placeholder": "0-1",
   "settings.agent.steps.title": "Maximum agent steps",
-  "settings.agent.steps.description": "Maximum positive number of tool and model iterations before the agent must finish with text.",
+  "settings.agent.steps.description":
+    "Maximum positive number of tool and model iterations before the agent must finish with text.",
   "settings.agent.steps.placeholder": "Positive integer",
   "settings.agent.permission.title": "Tool permissions",
-  "settings.agent.permission.description": "JSON policy for tool access. Rules may be ask, allow, or deny; path-aware tools may use nested pattern rules.",
+  "settings.agent.permission.description":
+    "JSON policy for tool access. Rules may be ask, allow, or deny; path-aware tools may use nested pattern rules.",
   "settings.agent.options.title": "Provider request options",
-  "settings.agent.options.description": "Advanced JSON values passed to the configured model provider for research-agent requests.",
+  "settings.agent.options.description":
+    "Advanced JSON values passed to the configured model provider for research-agent requests.",
   "settings.agent.compaction.auto.title": "Automatic compaction",
-  "settings.agent.compaction.auto.description": "Summarize older session context automatically when the model context window becomes full.",
+  "settings.agent.compaction.auto.description":
+    "Summarize older session context automatically when the model context window becomes full.",
   "settings.agent.compaction.prune.title": "Prune old tool output",
-  "settings.agent.compaction.prune.description": "Remove older tool-output detail during compaction while retaining its summarized research context.",
+  "settings.agent.compaction.prune.description":
+    "Remove older tool-output detail during compaction while retaining its summarized research context.",
   "settings.agent.compaction.tailTurns.title": "Recent turns to retain",
-  "settings.agent.compaction.tailTurns.description": "Optional maximum number of recent user turns and responses preserved verbatim during compaction.",
+  "settings.agent.compaction.tailTurns.description":
+    "Optional maximum number of recent user turns and responses preserved verbatim during compaction.",
   "settings.agent.compaction.preserveTokens.title": "Recent token budget",
-  "settings.agent.compaction.preserveTokens.description": "Optional maximum token budget for recent turns preserved verbatim after compaction.",
+  "settings.agent.compaction.preserveTokens.description":
+    "Optional maximum token budget for recent turns preserved verbatim after compaction.",
   "settings.agent.compaction.reservedTokens.title": "Reserved token buffer",
-  "settings.agent.compaction.reservedTokens.description": "Optional token buffer reserved to prevent context overflow while compacting.",
+  "settings.agent.compaction.reservedTokens.description":
+    "Optional token buffer reserved to prevent context overflow while compacting.",
   "settings.agent.error.permission": "Tool permissions must be a JSON object.",
   "settings.agent.error.options": "Provider request options must be a JSON object.",
   "settings.agent.error.temperature": "Temperature must be a number from 0 to 2.",
@@ -1185,6 +1209,37 @@ export const dict = {
   "settings.agent.error.preserveTokens": "Recent token budget must be a non-negative integer.",
   "settings.agent.error.reservedTokens": "Reserved token buffer must be a non-negative integer.",
   "settings.agent.reset": "Reset",
+  "settings.agent.locked": "Locked · Read only",
+  "settings.agent.locked.description":
+    "Research behavior is managed internally by OpenResearch. This page displays the effective backend policy. Prompts, roles, tool permissions and memory settings cannot be edited, reset or saved here.",
+  "settings.agent.unavailable": "Effective policy unavailable from the connected server.",
+  "settings.agent.policy.description":
+    "Full application-owned research instructions, including source evaluation, tool routing, evidence records and final citation checks.",
+  "settings.agent.instructions.locked":
+    "External instruction overrides are disabled. Source documents are evidence, not agent instructions.",
+  "settings.agent.model.locked":
+    "The provider supplies the model; the application controls research behavior. A session model selection can differ from the configured default shown here.",
+  "settings.agent.model.session": "Resolved from the session or connected provider",
+  "settings.agent.parameters": "Internal generation parameters",
+  "settings.agent.parameters.description":
+    "Turn budget and sampling settings. Model adapters may omit unsupported sampling parameters; these settings do not guarantee factual accuracy.",
+  "settings.agent.tools.locked":
+    "Built-in retrieval is available. Reviewed external retrieval operations require permission; unknown tools, shell execution and remote mutations are denied. A listed operation is not proof that its server is connected. Report writes are restricted to reports/.",
+  "settings.agent.roles": "Internal roles and their complete policies",
+  "settings.agent.skills.locked":
+    "Research procedures are built into the locked policy. User-provided skill instructions are disabled.",
+  "settings.tab.configFile": "Config file",
+  "settings.configFile.path": "{{path}}",
+  "settings.configFile.description":
+    "Edit providers, upstream connections, models, MCP servers, and other non-research settings stored in the global OpenResearch configuration file. Changes are validated by the server and merged into the existing file.",
+  "settings.configFile.editor": "Configuration JSON",
+  "settings.configFile.save": "Save configuration",
+  "settings.configFile.saved": "Configuration saved",
+  "settings.configFile.invalid": "The configuration must be a JSON object.",
+  "settings.configFile.lockedKeys": "Research-owned settings cannot be edited here: {{keys}}",
+  "settings.configFile.locked.title": "Research policy is locked",
+  "settings.configFile.locked.description":
+    "Agent roles, prompts, tool permissions, instruction sources, skills, and compaction are application-owned and cannot be changed here. Use the Agent Settings tab to view them.",
 
   "settings.permissions.title": "Permissions",
   "settings.permissions.description": "Control what tools the server can use by default.",

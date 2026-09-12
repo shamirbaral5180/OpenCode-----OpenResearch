@@ -1,0 +1,27 @@
+{
+  "expectedSubquestions": ["What is the effect size?", "What are the limitations?"],
+  "report": "## Question\nDoes intervention X reduce outcome Y?\n\n## Scope and As-of Date\nPublished literature through 2026.\n\n## Method\nSearched PubMed and OpenAlex; resolved DOIs and checked URLs.\n\n## Findings\nIntervention X reduced outcome Y with a moderate effect size [S1]. A second trial reported a smaller effect [S2].\n\n## Counterevidence\nOne contradicted record questions the pooled interpretation [S3].\n\n## Limitations\nSmall samples; limited long-term follow-up.\n\n## Source Register\nSee sources.md.\n",
+  "evidence": [
+    {
+      "source_id": "S1",
+      "claim_id": "C1",
+      "claim": "Intervention X reduces outcome Y with a moderate effect size",
+      "source": { "doi": "10.1000/a", "url": "https://example.org/a", "accessLevel": "full-text", "retrievedAt": "2026-01-01T00:00:00.000Z" },
+      "verdict": "verified"
+    },
+    {
+      "source_id": "S2",
+      "claim_id": "C2",
+      "claim": "A second trial reported a smaller effect",
+      "source": { "doi": "10.1000/b", "accessLevel": "abstract", "retrievedAt": "2026-01-01T00:00:00.000Z" },
+      "verdict": "verified"
+    },
+    {
+      "source_id": "S3",
+      "claim_id": "C3",
+      "claim": "A contradicted record questions the pooled interpretation",
+      "source": { "doi": "10.1000/c", "accessLevel": "snippet", "retrievedAt": "2026-01-01T00:00:00.000Z" },
+      "verdict": "contradicted"
+    }
+  ]
+}

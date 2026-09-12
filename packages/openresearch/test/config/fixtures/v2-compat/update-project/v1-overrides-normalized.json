@@ -6,12 +6,12 @@
     }
   },
   "snapshot": false,
+  "shell": "",
   "agent": {
     "reviewer": {
-      "disable": true,
+      "disable": false,
       "options": {},
       "permission": {}
     }
-  },
-  "shell": ""
+  }
 }

@@ -6,12 +6,9 @@
     }
   },
   "snapshot": false,
-  "permission": {
-    "read": "deny"
-  },
   "agent": {
     "reviewer": {
-      "disable": true,
+      "disable": false,
       "options": {},
       "permission": {}
     }
