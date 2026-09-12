@@ -38,6 +38,45 @@ checked before a report can finalize. Rigor should be configurable and lockable
 per workspace once enterprise controls exist, but the default is strict.
 Prompt-only guidance (`assisted`) is not sufficient as the default.
 
+## Knowledge base decisions
+
+The knowledge base is the foundation for persistent memory, verification
+context, multi-agent coordination, and monitoring. Decisions:
+
+- **Storage: local-first.** SQLite on device, in the same database as the rest
+  of the application. No server custody. Optional end-to-end encrypted sync is a
+  later, opt-in feature. This preserves true air-gapped operation and user data
+  ownership.
+- **Scope: per project/workspace by default.** Entities, claims, and edges are
+  keyed by `project_id` and isolated. Cross-project linking is an explicit,
+  advanced opt-in, never automatic. This avoids contamination and privacy leaks
+  in multi-user or sensitive environments.
+- **Model: entities, claims, edges.** A lightweight graph, not a heavy RDF
+  store. Claims reference the evidence ledger by `source_id` and `source_topic`
+  so the knowledge base stays auditable back to primary sources.
+- **Dedupe:** entities dedupe by `(project_id, kind, normalized_name)`; edges
+  dedupe by `(project_id, from, to, relation)`.
+- **No vectors yet.** Embeddings and semantic retrieval are a future layer on
+  top of this store; the durable, portable truth is the relational graph.
+
+## Live monitoring decisions (deferred, recorded for direction)
+
+1. While the app is open (always available).
+2. Local background service for air-gapped/privacy-sensitive users.
+3. Server-side monitoring only as an explicit opt-in for users who accept cloud
+   processing.
+
+Server-side must never be the only option.
+
+## Multi-agent orchestration decisions (deferred, recorded for direction)
+
+- Planner autonomy: medium-high, with hard caps.
+- Max 4-6 concurrent subagents; max depth 2-3 levels.
+- A user-configurable cost ceiling per research run (sensible default in the
+  low single-digit dollar range or token equivalent).
+- Show an estimated cost before launching a heavy multi-agent run and prefer
+  "propose plan, user confirms" for expensive runs over silent autonomy.
+
 ## Capability roadmap
 
 Ranked by research impact ("wow" factor), not by implementation cost.
