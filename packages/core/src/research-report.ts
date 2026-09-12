@@ -35,7 +35,12 @@ export function citedSourceIds(report: string) {
 }
 
 // Hard-fail on missing required sections or citations that do not resolve to a ledger record.
-export function validate(input: { report: string; sources?: string; evidence: EvidenceRecord[] }): Validation {
+export function validate(input: {
+  report: string
+  sources?: string
+  html?: string
+  evidence: EvidenceRecord[]
+}): Validation {
   const errors: string[] = []
   const warnings: string[] = []
 
@@ -47,6 +52,15 @@ export function validate(input: { report: string; sources?: string; evidence: Ev
   const citedIds = citedSourceIds(input.report)
   const unresolvableIds = citedIds.filter((id) => !known.has(id))
   for (const id of unresolvableIds) errors.push(`citation [${id}] has no matching evidence ledger record`)
+
+  // An HTML rendition must not introduce citations absent from the markdown report.
+  if (input.html !== undefined) {
+    const htmlIds = citedSourceIds(input.html)
+    const stray = htmlIds.filter((id) => !known.has(id))
+    for (const id of stray) errors.push(`html citation [${id}] has no matching evidence ledger record`)
+    const extra = htmlIds.filter((id) => !citedIds.includes(id))
+    if (extra.length > 0) errors.push(`html cites source(s) absent from the report: ${extra.join(", ")}`)
+  }
 
   const verified = input.evidence.filter((record) => record.verdict === "verified").length
   const verifiedShare = input.evidence.length === 0 ? 0 : verified / input.evidence.length

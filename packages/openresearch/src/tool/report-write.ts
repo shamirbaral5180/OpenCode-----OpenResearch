@@ -14,6 +14,10 @@ export const Parameters = Schema.Struct({
   report: Schema.String.annotate({
     description: "Full report markdown. Must include required sections and cite ledger source IDs like [S1].",
   }),
+  html: Schema.optional(Schema.String).annotate({
+    description:
+      "Optional self-contained HTML rendition of the report (inline styles, no external assets). Written as report.html after the report validates.",
+  }),
   search_log: Schema.optional(Schema.String).annotate({
     description: "Optional search-log markdown: queries tried, tools used, failures.",
   }),
@@ -38,18 +42,20 @@ export const ReportWriteTool = Tool.define<typeof Parameters, Metadata, FSUtil.S
 
     return {
       description:
-        "Validate and write a research report bundle under reports/<topic>/. The tool reads the evidence ledger, rejects the write when required sections are missing or any [S#] citation has no ledger record, and generates sources.md from the ledger (not from the model). Retry after fixing the reported errors. Never bypass it with a raw file write for the final report.",
+        "Validate and write a research report bundle under reports/<topic>/. The tool reads the evidence ledger, rejects the write when required sections are missing or any [S#] citation has no ledger record, and generates sources.md from the ledger (not from the model). Pass an optional self-contained html string to also write report.html. Retry after fixing the reported errors. Never bypass it with a raw file write for the final report.",
       parameters: Parameters,
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context<Metadata>) =>
         Effect.gen(function* () {
+          const instance = yield* InstanceState.context
+          // Permission rules are worktree-relative (see write/edit tools).
+          const relative = path.relative(instance.worktree, path.join(instance.directory, "reports", params.topic))
           yield* ctx.ask({
             permission: "edit",
-            patterns: [path.join("reports", params.topic)],
-            always: ["*"],
+            patterns: [relative],
+            always: [relative],
             metadata: { topic: params.topic },
           })
 
-          const instance = yield* InstanceState.context
           const permitted = yield* ResearchEvidence.allowed(fs, instance.directory, params.topic)
           if (!permitted) {
             const metadata: Metadata = {
@@ -66,7 +72,11 @@ export const ReportWriteTool = Tool.define<typeof Parameters, Metadata, FSUtil.S
           }
 
           const evidence = yield* ResearchEvidence.read(fs, instance.directory, params.topic)
-          const validation = ResearchReport.validate({ report: params.report, evidence: evidence.records })
+          const validation = ResearchReport.validate({
+            report: params.report,
+            html: params.html,
+            evidence: evidence.records,
+          })
 
           if (!validation.valid) {
             const metadata: Metadata = {
@@ -96,8 +106,12 @@ export const ReportWriteTool = Tool.define<typeof Parameters, Metadata, FSUtil.S
               params.search_log.endsWith("\n") ? params.search_log : `${params.search_log}\n`,
             )
           }
+          const htmlPath = params.html !== undefined ? path.join(target, "report.html") : undefined
+          if (htmlPath && params.html !== undefined) {
+            yield* fs.writeWithDirs(htmlPath, params.html.endsWith("\n") ? params.html : `${params.html}\n`)
+          }
 
-          for (const file of [reportPath, sourcesPath]) {
+          for (const file of [reportPath, sourcesPath, ...(htmlPath ? [htmlPath] : [])]) {
             yield* events.publish(FileSystem.Event.Edited, { file })
             yield* events.publish(Watcher.Event.Updated, { file, event: "add" })
           }
@@ -120,6 +134,7 @@ export const ReportWriteTool = Tool.define<typeof Parameters, Metadata, FSUtil.S
                 ok: true,
                 report: reportPath,
                 sources: sourcesPath,
+                ...(htmlPath ? { html: htmlPath } : {}),
                 warnings: validation.warnings,
                 citationCoverage: validation.citationCoverage,
                 verifiedShare: validation.verifiedShare,
@@ -139,8 +154,11 @@ const uniqueTopicDir = (fs: FSUtil.Interface, directory: string, topic: string) 
     const root = path.join(directory, "reports")
     for (let index = 1; index < 1000; index++) {
       const candidate = index === 1 ? path.join(root, topic) : path.join(root, `${topic}-${index}`)
-      const exists = yield* fs.existsSafe(candidate)
-      if (!exists) return candidate
+      const hasReport = yield* fs.existsSafe(path.join(candidate, "report.md"))
+      // A directory that exists without a report.md holds the working evidence ledger;
+      // write the report alongside it. Only bump the number when a report already exists,
+      // so existing reports are never overwritten and the ledger stays in the same folder.
+      if (!hasReport) return candidate
     }
     return yield* Effect.die(new Error(`no free report directory for topic: ${topic}`))
   })

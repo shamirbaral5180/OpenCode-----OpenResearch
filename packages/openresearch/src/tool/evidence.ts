@@ -54,14 +54,19 @@ export const EvidenceTool = Tool.define<typeof Parameters, Metadata, FSUtil.Serv
       parameters: Parameters,
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context<Metadata>) =>
         Effect.gen(function* () {
+          const instance = yield* InstanceState.context
+          // Permission rules are worktree-relative (see write/edit tools).
+          const relative = path.relative(
+            instance.worktree,
+            path.join(instance.directory, "reports", params.topic, ResearchEvidence.ledgerFileName),
+          )
           yield* ctx.ask({
             permission: "edit",
-            patterns: [path.join("reports", params.topic, ResearchEvidence.ledgerFileName)],
-            always: ["*"],
+            patterns: [relative],
+            always: [relative],
             metadata: { topic: params.topic },
           })
 
-          const instance = yield* InstanceState.context
           const record = {
             source_id: params.source_id ?? "",
             claim_id: params.claim_id ?? "",

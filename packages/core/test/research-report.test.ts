@@ -78,4 +78,33 @@ describe("research report validation", () => {
     expect(result.valid).toBe(true)
     expect(result.warnings.some((warning) => warning.includes("counterevidence"))).toBe(true)
   })
+
+  test("accepts an html companion that cites the same sources as the report", () => {
+    const result = ResearchReport.validate({
+      report: report(),
+      html: "<p>X is true [S1].</p><p>Counter [S2].</p>",
+      evidence: [record("S1"), record("S2", "contradicted")],
+    })
+    expect(result.valid).toBe(true)
+  })
+
+  test("hard-fails when html cites a source absent from the report", () => {
+    const result = ResearchReport.validate({
+      report: report(),
+      html: "<p>X [S1] plus [S3].</p>",
+      evidence: [record("S1"), record("S2", "contradicted")],
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some((error) => error.includes("html cites source"))).toBe(true)
+  })
+
+  test("hard-fails when html cites an unknown ledger source", () => {
+    const result = ResearchReport.validate({
+      report: report(),
+      html: "<p>X [S1] and [S9].</p>",
+      evidence: [record("S1"), record("S2", "contradicted")],
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some((error) => error.includes("html citation [S9]"))).toBe(true)
+  })
 })
