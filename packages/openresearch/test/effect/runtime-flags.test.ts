@@ -18,6 +18,26 @@ describe("RuntimeFlags", () => {
     }),
   )
 
+  it.effect("layer defaults researchAudit to enforced", () =>
+    Effect.gen(function* () {
+      const flags = yield* readFlags.pipe(Effect.provide(fromConfig({})))
+
+      expect(flags.researchAudit).toBe("enforced")
+    }),
+  )
+
+  it.effect("layer accepts explicit researchAudit off and assisted, rejecting unknown values", () =>
+    Effect.gen(function* () {
+      const off = yield* readFlags.pipe(Effect.provide(fromConfig({ OPENRESEARCH_RESEARCH_AUDIT: "off" })))
+      const assisted = yield* readFlags.pipe(Effect.provide(fromConfig({ OPENRESEARCH_RESEARCH_AUDIT: "assisted" })))
+      const unknown = yield* readFlags.pipe(Effect.provide(fromConfig({ OPENRESEARCH_RESEARCH_AUDIT: "bogus" })))
+
+      expect(off.researchAudit).toBe("off")
+      expect(assisted.researchAudit).toBe("assisted")
+      expect(unknown.researchAudit).toBe("enforced")
+    }),
+  )
+
   it.effect("layer parses plugin flags from the active ConfigProvider", () =>
     Effect.gen(function* () {
       const flags = yield* readFlags.pipe(
