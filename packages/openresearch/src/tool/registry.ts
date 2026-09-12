@@ -34,6 +34,7 @@ import { VerifyQuoteTool } from "./verify_quote"
 import { VerifyCitationTool } from "./verify_citation"
 import { EvidenceTool } from "./evidence"
 import { ReportWriteTool } from "./report-write"
+import { KnowledgeTool } from "./knowledge"
 import * as Truncate from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
 import { Glob } from "@openresearch-ai/core/util/glob"
@@ -127,6 +128,7 @@ const layer = Layer.effect(
     const verifyCitation = yield* VerifyCitationTool
     const evidence = yield* EvidenceTool
     const reportWrite = yield* ReportWriteTool
+    const knowledgeTool = yield* KnowledgeTool
     const agent = yield* Agent.Service
     const codeMode = flags.experimentalCodeMode ? yield* Effect.promise(() => import("./code-mode")) : undefined
     const codeModeTool = codeMode ? yield* codeMode.CodeModeTool : undefined
@@ -242,6 +244,7 @@ const layer = Layer.effect(
           verifyCitation: Tool.init(verifyCitation),
           evidence: Tool.init(evidence),
           reportWrite: Tool.init(reportWrite),
+          knowledge: Tool.init(knowledgeTool),
           ...(codeModeTool ? { execute: Tool.init(codeModeTool) } : {}),
         })
 
@@ -268,6 +271,7 @@ const layer = Layer.effect(
             tool.verifyCitation,
             tool.evidence,
             tool.reportWrite,
+            tool.knowledge,
             ...(tool.execute ? [tool.execute] : []),
             ...(flags.experimentalLspTool ? [tool.lsp] : []),
             ...(flags.experimentalPlanMode && flags.client === "cli" ? [tool.plan] : []),

@@ -1,6 +1,6 @@
 export * as Knowledge from "./knowledge"
 
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray, like, or } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 import { Database } from "../database/database"
 import { makeGlobalNode } from "../effect/app-node"
@@ -95,6 +95,12 @@ export interface Interface {
     kind?: KnowledgeSchema.EntityKind
   }) => Effect.Effect<KnowledgeSchema.Entity | undefined>
   readonly listEntities: (projectID: ProjectSchema.ID) => Effect.Effect<ReadonlyArray<KnowledgeSchema.Entity>>
+  readonly searchEntities: (input: {
+    projectID: ProjectSchema.ID
+    query: string
+    kind?: KnowledgeSchema.EntityKind
+    limit?: number
+  }) => Effect.Effect<ReadonlyArray<KnowledgeSchema.Entity>>
   readonly removeEntity: (projectID: ProjectSchema.ID, id: KnowledgeSchema.EntityID) => Effect.Effect<boolean>
 
   readonly addClaim: (input: KnowledgeSchema.ClaimInput) => Effect.Effect<KnowledgeSchema.Claim>
@@ -117,6 +123,11 @@ export interface Interface {
     sourceId?: string
   }) => Effect.Effect<ReadonlyArray<KnowledgeSchema.Claim>>
   readonly removeClaim: (projectID: ProjectSchema.ID, id: KnowledgeSchema.ClaimID) => Effect.Effect<boolean>
+  readonly claimsAbout: (input: {
+    projectID: ProjectSchema.ID
+    entityId: KnowledgeSchema.EntityID
+    limit?: number
+  }) => Effect.Effect<ReadonlyArray<KnowledgeSchema.Claim>>
 
   readonly link: (input: KnowledgeSchema.EdgeInput) => Effect.Effect<KnowledgeSchema.Edge>
   readonly neighbors: (input: {
@@ -228,6 +239,28 @@ const layer = Layer.effect(
         .all()
         .pipe(Effect.orDie)
       return rows.map(toEntity)
+    })
+
+    const searchEntities = Effect.fn("Knowledge.searchEntities")(function* (input: {
+      projectID: ProjectSchema.ID
+      query: string
+      kind?: KnowledgeSchema.EntityKind
+      limit?: number
+    }) {
+      const needle = `%${input.query.trim().toLowerCase().replaceAll("%", "").replaceAll("_", "")}%`
+      const rows = yield* db
+        .select()
+        .from(KnowledgeEntityTable)
+        .where(
+          and(
+            eq(KnowledgeEntityTable.project_id, input.projectID),
+            ...(input.kind ? [eq(KnowledgeEntityTable.kind, input.kind)] : []),
+            or(like(KnowledgeEntityTable.normalized_name, needle), like(KnowledgeEntityTable.aliases, needle)),
+          ),
+        )
+        .all()
+        .pipe(Effect.orDie)
+      return rows.map(toEntity).slice(0, input.limit ?? 20)
     })
 
     const removeEntity = Effect.fn("Knowledge.removeEntity")(function* (
@@ -401,6 +434,35 @@ const layer = Layer.effect(
         .all()
         .pipe(Effect.orDie)
       return rows.map(toClaim)
+    })
+
+    const claimsAbout = Effect.fn("Knowledge.claimsAbout")(function* (input: {
+      projectID: ProjectSchema.ID
+      entityId: KnowledgeSchema.EntityID
+      limit?: number
+    }) {
+      const edges = yield* db
+        .select({ from_id: KnowledgeEdgeTable.from_id })
+        .from(KnowledgeEdgeTable)
+        .where(
+          and(
+            eq(KnowledgeEdgeTable.project_id, input.projectID),
+            eq(KnowledgeEdgeTable.to_id, input.entityId),
+            eq(KnowledgeEdgeTable.to_kind, "entity"),
+            eq(KnowledgeEdgeTable.from_kind, "claim"),
+          ),
+        )
+        .all()
+        .pipe(Effect.orDie)
+      const ids = edges.map((edge) => edge.from_id) as KnowledgeSchema.ClaimID[]
+      if (ids.length === 0) return []
+      const rows = yield* db
+        .select()
+        .from(KnowledgeClaimTable)
+        .where(and(eq(KnowledgeClaimTable.project_id, input.projectID), inArray(KnowledgeClaimTable.id, ids)))
+        .all()
+        .pipe(Effect.orDie)
+      return rows.map(toClaim).slice(0, input.limit ?? 20)
     })
 
     const removeClaim = Effect.fn("Knowledge.removeClaim")(function* (
@@ -598,11 +660,13 @@ const layer = Layer.effect(
       getEntity,
       findEntity,
       listEntities,
+      searchEntities,
       removeEntity,
       addClaim,
       populateFromEvidence,
       getClaim,
       listClaims,
+      claimsAbout,
       removeClaim,
       link,
       neighbors,

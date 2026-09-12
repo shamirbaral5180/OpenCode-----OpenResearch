@@ -323,4 +323,59 @@ describe("Knowledge service", () => {
       expect(context!.claims).toHaveLength(2)
     }),
   )
+
+  it.effect("searchEntities matches name and aliases case-insensitively and scopes by project", () =>
+    Effect.gen(function* () {
+      yield* setup()
+      const knowledge = yield* Knowledge.Service
+
+      yield* knowledge.upsertEntity({ projectID: projectA, kind: "organization", name: "Example Corp" })
+      yield* knowledge.upsertEntity({
+        projectID: projectA,
+        kind: "person",
+        name: "Ada Lovelace",
+        aliases: ["Countess of Lovelace"],
+      })
+      yield* knowledge.upsertEntity({ projectID: projectB, kind: "organization", name: "Example Corp" })
+
+      const byName = yield* knowledge.searchEntities({ projectID: projectA, query: "example" })
+      expect(byName).toHaveLength(1)
+      expect(byName[0]!.name).toBe("Example Corp")
+
+      const byAlias = yield* knowledge.searchEntities({ projectID: projectA, query: "countess" })
+      expect(byAlias).toHaveLength(1)
+      expect(byAlias[0]!.name).toBe("Ada Lovelace")
+
+      const byKind = yield* knowledge.searchEntities({ projectID: projectA, query: "example", kind: "person" })
+      expect(byKind).toHaveLength(0)
+    }),
+  )
+
+  it.effect("claimsAbout returns only claims linked to the entity in the same project", () =>
+    Effect.gen(function* () {
+      yield* setup()
+      const knowledge = yield* Knowledge.Service
+
+      const entity = yield* knowledge.upsertEntity({ projectID: projectA, kind: "person", name: "Grace" })
+      const linked = yield* knowledge.addClaim({
+        projectID: projectA,
+        statement: "Grace worked here",
+        entityIds: [entity.id],
+      })
+      yield* knowledge.addClaim({ projectID: projectA, statement: "Unrelated" })
+      yield* knowledge.addClaim({
+        projectID: projectB,
+        statement: "Other project",
+        entityIds: [entity.id],
+      })
+
+      const claims = yield* knowledge.claimsAbout({ projectID: projectA, entityId: entity.id })
+      expect(claims).toHaveLength(1)
+      expect(claims[0]!.id).toBe(linked.id)
+      // Edges are project-scoped: project B sees only its own linking claim, not project A's.
+      const other = yield* knowledge.claimsAbout({ projectID: projectB, entityId: entity.id })
+      expect(other).toHaveLength(1)
+      expect(other[0]!.statement).toBe("Other project")
+    }),
+  )
 })
