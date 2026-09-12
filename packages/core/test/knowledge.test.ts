@@ -166,4 +166,114 @@ describe("Knowledge service", () => {
       expect(yield* knowledge.listEntities(projectB)).toHaveLength(1)
     }),
   )
+
+  it.effect("addClaim upserts by origin key instead of duplicating", () =>
+    Effect.gen(function* () {
+      yield* setup()
+      const knowledge = yield* Knowledge.Service
+
+      const first = yield* knowledge.addClaim({
+        projectID: projectA,
+        statement: "Initial wording",
+        status: "unverified",
+        originKey: "topic:S1:C1",
+      })
+      const second = yield* knowledge.addClaim({
+        projectID: projectA,
+        statement: "Corrected wording",
+        status: "verified",
+        originKey: "topic:S1:C1",
+      })
+
+      expect(second.id).toBe(first.id)
+      expect(second.statement).toBe("Corrected wording")
+      expect(second.status).toBe("verified")
+      expect(yield* knowledge.listClaims({ projectID: projectA })).toHaveLength(1)
+    }),
+  )
+
+  it.effect("populateFromEvidence projects ledger records into entities and claims", () =>
+    Effect.gen(function* () {
+      yield* setup()
+      const knowledge = yield* Knowledge.Service
+
+      const result = yield* knowledge.populateFromEvidence({
+        projectID: projectA,
+        topic: "topic",
+        records: [
+          {
+            source_id: "S1",
+            claim_id: "C1",
+            claim: "The sky is blue",
+            verdict: "verified",
+            confidence: "high",
+            source: { title: "Atmosphere", doi: "10.1/abc" },
+          },
+          {
+            source_id: "S2",
+            claim_id: "C2",
+            claim: "The sky is green",
+            verdict: "contradicted",
+            source: { title: "Counterexample", url: "https://example.org/x" },
+          },
+        ],
+      })
+      expect(result.claims).toBe(2)
+      expect(result.entities).toBe(2)
+
+      const claims = yield* knowledge.listClaims({ projectID: projectA })
+      expect(claims).toHaveLength(2)
+      expect(claims.every((claim) => claim.origin_key)).toBe(true)
+      expect(claims.some((claim) => claim.status === "contradicted")).toBe(true)
+
+      const publications = (yield* knowledge.listEntities(projectA)).filter((entity) => entity.kind === "publication")
+      expect(publications).toHaveLength(2)
+
+      // Re-populating the same ledger must not duplicate, and must update verdicts.
+      yield* knowledge.populateFromEvidence({
+        projectID: projectA,
+        topic: "topic",
+        records: [
+          {
+            source_id: "S1",
+            claim_id: "C1",
+            claim: "The sky is blue",
+            verdict: "partial",
+            source: { title: "Atmosphere", doi: "10.1/abc" },
+          },
+        ],
+      })
+      const after = yield* knowledge.listClaims({ projectID: projectA, sourceId: "S1" })
+      expect(after).toHaveLength(1)
+      expect(after[0]!.status).toBe("partial")
+    }),
+  )
+
+  it.effect("populateFromEvidence anchors claims to their source publication", () =>
+    Effect.gen(function* () {
+      yield* setup()
+      const knowledge = yield* Knowledge.Service
+
+      const result = yield* knowledge.populateFromEvidence({
+        projectID: projectA,
+        topic: "topic",
+        records: [
+          {
+            source_id: "S1",
+            claim_id: "C1",
+            claim: "Findings",
+            verdict: "verified",
+            source: { title: "Paper", doi: "10.1/xyz" },
+          },
+        ],
+      })
+      expect(result.entities).toBe(1)
+
+      const claims = yield* knowledge.listClaims({ projectID: projectA })
+      const neighbors = yield* knowledge.neighbors({ projectID: projectA, nodeId: claims[0]!.id })
+      expect(neighbors).toHaveLength(1)
+      expect(neighbors[0]!.node.kind).toBe("entity")
+      expect(neighbors[0]!.edge.relation).toBe("about")
+    }),
+  )
 })

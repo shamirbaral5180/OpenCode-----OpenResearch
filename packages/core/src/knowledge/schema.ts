@@ -70,6 +70,9 @@ export const Claim = Schema.Struct({
   source_id: Schema.optional(Schema.String),
   source_topic: Schema.optional(Schema.String),
   session_id: Schema.optional(Schema.String),
+  // Stable identity of the source ledger record this claim came from, so
+  // re-populating the same ledger updates instead of duplicating.
+  origin_key: Schema.optional(Schema.String),
   time_created: Schema.Number,
   time_updated: Schema.Number,
 })
@@ -108,6 +111,7 @@ export const ClaimInput = Schema.Struct({
   sourceTopic: Schema.optional(Schema.String),
   sessionId: Schema.optional(Schema.String),
   entityIds: Schema.optional(Schema.Array(EntityID)),
+  originKey: Schema.optional(Schema.String),
 })
 export type ClaimInput = typeof ClaimInput.Type
 

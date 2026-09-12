@@ -97,6 +97,7 @@ export default {
           \`source_id\` text,
           \`source_topic\` text,
           \`session_id\` text,
+          \`origin_key\` text,
           \`time_created\` integer NOT NULL,
           \`time_updated\` integer NOT NULL,
           CONSTRAINT \`fk_knowledge_claim_project_id_project_id_fk\` FOREIGN KEY (\`project_id\`) REFERENCES \`project\`(\`id\`) ON DELETE CASCADE
@@ -287,6 +288,9 @@ export default {
       yield* tx.run(`CREATE INDEX \`knowledge_claim_status_idx\` ON \`knowledge_claim\` (\`project_id\`,\`status\`);`)
       yield* tx.run(
         `CREATE INDEX \`knowledge_claim_source_idx\` ON \`knowledge_claim\` (\`project_id\`,\`source_id\`);`,
+      )
+      yield* tx.run(
+        `CREATE UNIQUE INDEX \`knowledge_claim_origin_idx\` ON \`knowledge_claim\` (\`project_id\`,\`origin_key\`);`,
       )
       yield* tx.run(
         `CREATE UNIQUE INDEX \`knowledge_edge_unique_idx\` ON \`knowledge_edge\` (\`project_id\`,\`from_id\`,\`to_id\`,\`relation\`);`,

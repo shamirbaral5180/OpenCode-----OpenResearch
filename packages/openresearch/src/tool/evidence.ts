@@ -4,6 +4,7 @@ import * as Tool from "./tool"
 import { InstanceState } from "@/effect/instance-state"
 import { FSUtil } from "@openresearch-ai/core/fs-util"
 import { ResearchEvidence, AccessLevel, Verdict } from "@openresearch-ai/core/research-evidence"
+import { Knowledge } from "@openresearch-ai/core/knowledge/knowledge"
 
 export const Parameters = Schema.Struct({
   action: Schema.Literals(["add", "update", "list"]).annotate({
@@ -39,14 +40,45 @@ type Metadata = {
   count: number
   source_id?: string
   error?: string
+  knowledgeEntities?: number
+  knowledgeClaims?: number
 }
 
 const now = () => new Date().toISOString()
 
-export const EvidenceTool = Tool.define<typeof Parameters, Metadata, FSUtil.Service>(
+// Populate the project knowledge graph from a topic's ledger. Best-effort: a graph
+// write must never fail or alter the ledger append. Only records with an identity
+// (source_id, claim_id) are projected; verified/contradicted records carry status.
+const populateKnowledge = Effect.fnUntraced(function* (
+  knowledge: Knowledge.Interface,
+  projectID: Parameters<Knowledge.Interface["populateFromEvidence"]>[0]["projectID"],
+  topic: string,
+  records: ResearchEvidence.Record[],
+) {
+  const projectable = records.filter((record) => record.source_id && record.claim_id)
+  if (projectable.length === 0) return undefined
+  const projected = yield* knowledge
+    .populateFromEvidence({
+      projectID,
+      topic,
+      records: projectable.map((record) => ({
+        source_id: record.source_id,
+        claim_id: record.claim_id,
+        claim: record.claim,
+        verdict: record.verdict,
+        confidence: record.confidence,
+        source: { title: record.source.title, doi: record.source.doi, url: record.source.url },
+      })),
+    })
+    .pipe(Effect.exit)
+  return projected._tag === "Success" ? projected.value : undefined
+})
+
+export const EvidenceTool = Tool.define<typeof Parameters, Metadata, FSUtil.Service | Knowledge.Service>(
   "evidence",
   Effect.gen(function* () {
     const fs = yield* FSUtil.Service
+    const knowledge = yield* Knowledge.Service
 
     return {
       description:
@@ -154,11 +186,14 @@ export const EvidenceTool = Tool.define<typeof Parameters, Metadata, FSUtil.Serv
             return { title: "evidence rejected", output: written.reason, metadata }
           }
 
+          const collapsed = yield* ResearchEvidence.read(fs, instance.directory, params.topic)
+          const projected = yield* populateKnowledge(knowledge, instance.project.id, params.topic, collapsed.records)
           const metadata: Metadata = {
             topic: params.topic,
             action: params.action,
             count: existing.records.length + 1,
             source_id: params.source_id,
+            ...(projected ? { knowledgeEntities: projected.entities, knowledgeClaims: projected.claims } : {}),
           }
           yield* ctx.metadata({ title: `ledger ${params.action} ${params.source_id}`, metadata })
           return {
@@ -168,6 +203,9 @@ export const EvidenceTool = Tool.define<typeof Parameters, Metadata, FSUtil.Serv
                 ok: true,
                 source_id: params.source_id,
                 path: ResearchEvidence.ledgerPath(instance.directory, params.topic),
+                ...(projected
+                  ? { knowledge: { entities: projected.entities, claims: projected.claims } }
+                  : {}),
               },
               null,
               2,

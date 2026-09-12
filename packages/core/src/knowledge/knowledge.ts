@@ -38,6 +38,7 @@ function toClaim(row: ClaimRow): KnowledgeSchema.Claim {
     source_id: row.source_id ?? undefined,
     source_topic: row.source_topic ?? undefined,
     session_id: row.session_id ?? undefined,
+    origin_key: row.origin_key ?? undefined,
     time_created: row.time_created,
     time_updated: row.time_updated,
   }
@@ -74,6 +75,18 @@ export interface Interface {
   readonly removeEntity: (projectID: ProjectSchema.ID, id: KnowledgeSchema.EntityID) => Effect.Effect<boolean>
 
   readonly addClaim: (input: KnowledgeSchema.ClaimInput) => Effect.Effect<KnowledgeSchema.Claim>
+  readonly populateFromEvidence: (input: {
+    projectID: ProjectSchema.ID
+    topic: string
+    records: ReadonlyArray<{
+      source_id: string
+      claim_id: string
+      claim: string
+      verdict: KnowledgeSchema.ClaimStatus
+      confidence?: KnowledgeSchema.Confidence
+      source?: { title?: string; doi?: string; url?: string }
+    }>
+  }) => Effect.Effect<{ entities: number; claims: number }>
   readonly getClaim: (projectID: ProjectSchema.ID, id: KnowledgeSchema.ClaimID) => Effect.Effect<KnowledgeSchema.Claim | undefined>
   readonly listClaims: (input?: {
     projectID: ProjectSchema.ID
@@ -203,6 +216,32 @@ const layer = Layer.effect(
       return removed !== undefined
     })
 
+    const linkClaimEntities = Effect.fnUntraced(function* (
+      projectID: ProjectSchema.ID,
+      claimId: KnowledgeSchema.ClaimID,
+      entityIds: readonly KnowledgeSchema.EntityID[],
+    ) {
+      yield* Effect.forEach(
+        entityIds,
+        (entityId) =>
+          db
+            .insert(KnowledgeEdgeTable)
+            .values({
+              id: KnowledgeSchema.EdgeID.create(),
+              project_id: projectID,
+              from_id: claimId,
+              from_kind: "claim",
+              to_id: entityId,
+              to_kind: "entity",
+              relation: "about",
+            })
+            .onConflictDoNothing()
+            .run()
+            .pipe(Effect.orDie),
+        { discard: true },
+      )
+    })
+
     const addClaim = Effect.fn("Knowledge.addClaim")(function* (input: KnowledgeSchema.ClaimInput) {
       const id = KnowledgeSchema.ClaimID.create()
       yield* db
@@ -217,37 +256,90 @@ const layer = Layer.effect(
           source_id: input.sourceId,
           source_topic: input.sourceTopic,
           session_id: input.sessionId,
+          origin_key: input.originKey,
+        })
+        .onConflictDoUpdate({
+          target: [KnowledgeClaimTable.project_id, KnowledgeClaimTable.origin_key],
+          set: {
+            statement: input.statement,
+            status: input.status ?? "unverified",
+            confidence: input.confidence ?? null,
+            as_of: input.asOf ?? null,
+            source_id: input.sourceId ?? null,
+            source_topic: input.sourceTopic ?? null,
+            session_id: input.sessionId ?? null,
+          },
         })
         .run()
         .pipe(Effect.orDie)
-      if (input.entityIds?.length) {
-        yield* Effect.forEach(
-          input.entityIds,
-          (entityId) =>
-            db
-              .insert(KnowledgeEdgeTable)
-              .values({
-                id: KnowledgeSchema.EdgeID.create(),
-                project_id: input.projectID,
-                from_id: id,
-                from_kind: "claim",
-                to_id: entityId,
-                to_kind: "entity",
-                relation: "about",
-              })
-              .onConflictDoNothing()
-              .run()
-              .pipe(Effect.orDie),
-          { discard: true },
-        )
-      }
+      // Re-select by origin so both insert and update paths return the stable row.
+      const resolved = input.originKey
+        ? yield* db
+            .select({ id: KnowledgeClaimTable.id })
+            .from(KnowledgeClaimTable)
+            .where(
+              and(
+                eq(KnowledgeClaimTable.project_id, input.projectID),
+                eq(KnowledgeClaimTable.origin_key, input.originKey),
+              ),
+            )
+            .get()
+            .pipe(Effect.orDie)
+        : { id }
+      const claimId = resolved?.id ?? id
+      if (input.entityIds?.length) yield* linkClaimEntities(input.projectID, claimId, input.entityIds)
       const row = yield* db
         .select()
         .from(KnowledgeClaimTable)
-        .where(eq(KnowledgeClaimTable.id, id))
+        .where(eq(KnowledgeClaimTable.id, claimId))
         .get()
         .pipe(Effect.orDie)
       return toClaim(row!)
+    })
+
+    // Project a topic's evidence ledger into the knowledge graph. Claims are keyed by
+    // (project, source_id, claim_id) so re-running updates instead of duplicating.
+    const populateFromEvidence = Effect.fn("Knowledge.populateFromEvidence")(function* (input: {
+      projectID: ProjectSchema.ID
+      topic: string
+      records: ReadonlyArray<{
+        source_id: string
+        claim_id: string
+        claim: string
+        verdict: KnowledgeSchema.ClaimStatus
+        confidence?: KnowledgeSchema.Confidence
+        source?: { title?: string; doi?: string; url?: string }
+      }>
+    }) {
+      let entities = 0
+      let claims = 0
+      for (const record of input.records) {
+        const entityIds: KnowledgeSchema.EntityID[] = []
+        // Anchor each record to a publication entity when bibliographic identity exists.
+        const anchor =
+          record.source?.doi ?? record.source?.title ?? record.source?.url
+            ? yield* upsertEntity({
+                projectID: input.projectID,
+                kind: "publication",
+                name: record.source?.title ?? record.source?.doi ?? record.source?.url ?? "Source",
+                externalIds: record.source?.doi ? { doi: record.source.doi } : undefined,
+              })
+            : undefined
+        if (anchor) entityIds.push(anchor.id)
+        entities += anchor ? 1 : 0
+        yield* addClaim({
+          projectID: input.projectID,
+          statement: record.claim,
+          status: record.verdict,
+          confidence: record.confidence,
+          sourceId: record.source_id,
+          sourceTopic: input.topic,
+          originKey: `${input.topic}:${record.source_id}:${record.claim_id}`,
+          entityIds: entityIds.length ? entityIds : undefined,
+        })
+        claims += 1
+      }
+      return { entities, claims }
     })
 
     const getClaim = Effect.fn("Knowledge.getClaim")(function* (
@@ -401,6 +493,7 @@ const layer = Layer.effect(
       listEntities,
       removeEntity,
       addClaim,
+      populateFromEvidence,
       getClaim,
       listClaims,
       removeClaim,

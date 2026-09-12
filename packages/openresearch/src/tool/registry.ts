@@ -11,6 +11,7 @@ import { GrepTool } from "./grep"
 import { ReadTool } from "./read"
 import { TaskTool } from "./task"
 import { Database } from "@openresearch-ai/core/database/database"
+import { Knowledge } from "@openresearch-ai/core/knowledge/knowledge"
 import { TodoWriteTool } from "./todo"
 import { WebFetchTool } from "./webfetch"
 import { WriteTool } from "./write"
@@ -473,6 +474,7 @@ export const node = LayerNode.make({
     MCP.node,
     Database.node,
     Ripgrep.node,
+    Knowledge.node,
   ],
 })
 

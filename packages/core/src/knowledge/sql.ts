@@ -43,12 +43,15 @@ export const KnowledgeClaimTable = sqliteTable(
     source_id: text(),
     source_topic: text(),
     session_id: text(),
+    origin_key: text(),
     ...Timestamps,
   },
   (table) => [
     index("knowledge_claim_project_idx").on(table.project_id),
     index("knowledge_claim_status_idx").on(table.project_id, table.status),
     index("knowledge_claim_source_idx").on(table.project_id, table.source_id),
+    // Claim provenance is idempotent per ledger record.
+    uniqueIndex("knowledge_claim_origin_idx").on(table.project_id, table.origin_key),
   ],
 )
 

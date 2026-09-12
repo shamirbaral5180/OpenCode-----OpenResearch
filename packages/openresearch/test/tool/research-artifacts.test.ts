@@ -3,6 +3,8 @@ import path from "path"
 import { Effect } from "effect"
 import { LayerNode } from "@openresearch-ai/core/effect/layer-node"
 import { FSUtil } from "@openresearch-ai/core/fs-util"
+import { Knowledge } from "@openresearch-ai/core/knowledge/knowledge"
+import { Database } from "@openresearch-ai/core/database/database"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { Truncate } from "@/tool/truncate"
 import { Agent } from "../../src/agent/agent"
@@ -15,7 +17,17 @@ import { TestInstance } from "../fixture/fixture"
 import { testEffect } from "../lib/effect"
 
 const it = testEffect(
-  LayerNode.compile(LayerNode.group([FSUtil.node, EventV2Bridge.node, Truncate.node, Agent.node, Permission.node])),
+  LayerNode.compile(
+    LayerNode.group([
+      FSUtil.node,
+      EventV2Bridge.node,
+      Truncate.node,
+      Agent.node,
+      Permission.node,
+      Database.node,
+      Knowledge.node,
+    ]),
+  ),
 )
 
 type AskInput = { permission: string; patterns: readonly string[]; always: readonly string[] }
@@ -116,6 +128,40 @@ describe("research artifact tool permissions", () => {
       )
       // On disk both records remain; the list projection collapses to the latest.
       expect(ledger.trim().split("\n")).toHaveLength(2)
+    }),
+  )
+
+  it.instance("evidence populates the project knowledge graph idempotently", () =>
+    Effect.gen(function* () {
+      const { ctx } = makeCtx()
+      const instance = yield* InstanceState.context
+      const info = yield* EvidenceTool
+      const tool = yield* info.init()
+      const knowledge = yield* Knowledge.Service
+      const input = {
+        topic: "topic",
+        source_id: "S1",
+        claim_id: "C1",
+        claim: "Troy waives tuition for some graduate scholarships",
+        access_level: "full-text",
+        title: "Scholarships",
+        doi: "10.1/troy",
+      } as const
+
+      yield* tool.execute({ action: "add", ...input, verdict: "unverified" }, ctx)
+      yield* tool.execute({ action: "update", ...input, verdict: "verified", confidence: "high" }, ctx)
+
+      const claims = yield* knowledge.listClaims({ projectID: instance.project.id })
+      expect(claims).toHaveLength(1)
+      expect(claims[0]!.status).toBe("verified")
+      expect(claims[0]!.origin_key).toBe("topic:S1:C1")
+
+      const publications = (yield* knowledge.listEntities(instance.project.id)).filter(
+        (entity) => entity.kind === "publication",
+      )
+      expect(publications).toHaveLength(1)
+      const neighbors = yield* knowledge.neighbors({ projectID: instance.project.id, nodeId: claims[0]!.id })
+      expect(neighbors).toHaveLength(1)
     }),
   )
 

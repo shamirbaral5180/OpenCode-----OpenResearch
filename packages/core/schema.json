@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "de3642cf-e7dc-45eb-89cf-2a6ac7e98903",
+  "id": "34263f42-0df6-493c-8d15-38ec91bb93b0",
   "prevIds": [
-    "f14a9b18-8207-487e-a3d3-227e629ba9ad"
+    "de3642cf-e7dc-45eb-89cf-2a6ac7e98903"
   ],
   "ddl": [
     {
@@ -641,6 +641,16 @@
       "default": null,
       "generated": null,
       "name": "session_id",
+      "entityType": "columns",
+      "table": "knowledge_claim"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "origin_key",
       "entityType": "columns",
       "table": "knowledge_claim"
     },
@@ -2322,6 +2332,24 @@
       "where": null,
       "origin": "manual",
       "name": "knowledge_claim_source_idx",
+      "entityType": "indexes",
+      "table": "knowledge_claim"
+    },
+    {
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        },
+        {
+          "value": "origin_key",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "knowledge_claim_origin_idx",
       "entityType": "indexes",
       "table": "knowledge_claim"
     },
