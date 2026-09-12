@@ -276,4 +276,51 @@ describe("Knowledge service", () => {
       expect(neighbors[0]!.edge.relation).toBe("about")
     }),
   )
+
+  it.effect("context returns undefined for an empty project", () =>
+    Effect.gen(function* () {
+      yield* setup()
+      const knowledge = yield* Knowledge.Service
+      expect(yield* knowledge.context({ projectID: projectA })).toBeUndefined()
+    }),
+  )
+
+  it.effect("context surfaces contradictions first and counts the graph", () =>
+    Effect.gen(function* () {
+      yield* setup()
+      const knowledge = yield* Knowledge.Service
+
+      yield* knowledge.addClaim({ projectID: projectA, statement: "Verified thing", status: "verified", sourceId: "S1" })
+      yield* knowledge.addClaim({
+        projectID: projectA,
+        statement: "Conflicting thing",
+        status: "contradicted",
+        sourceId: "S2",
+      })
+      yield* knowledge.upsertEntity({ projectID: projectA, kind: "organization", name: "Example Corp" })
+      // Other projects must not leak into this context.
+      yield* knowledge.addClaim({ projectID: projectB, statement: "Other project", status: "verified" })
+
+      const context = yield* knowledge.context({ projectID: projectA })
+      expect(context).toBeDefined()
+      expect(context!.counts.claims).toBe(2)
+      expect(context!.counts.entities).toBe(1)
+      expect(context!.contradictions).toHaveLength(1)
+      expect(context!.contradictions[0]!.statement).toBe("Conflicting thing")
+      expect(context!.claims.map((claim) => claim.statement)).toEqual(["Verified thing"])
+      expect(context!.entities[0]!.name).toBe("Example Corp")
+    }),
+  )
+
+  it.effect("context honors the limit", () =>
+    Effect.gen(function* () {
+      yield* setup()
+      const knowledge = yield* Knowledge.Service
+      for (let index = 0; index < 5; index++) {
+        yield* knowledge.addClaim({ projectID: projectA, statement: `claim ${index}`, status: "verified" })
+      }
+      const context = yield* knowledge.context({ projectID: projectA, limit: 2 })
+      expect(context!.claims).toHaveLength(2)
+    }),
+  )
 })

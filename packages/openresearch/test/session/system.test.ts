@@ -8,6 +8,7 @@ import { Permission } from "../../src/permission"
 import type { Provider } from "../../src/provider/provider"
 import { SystemPrompt } from "../../src/session/system"
 import { MCP } from "../../src/mcp"
+import { Knowledge } from "@openresearch-ai/core/knowledge/knowledge"
 import { testEffect } from "../lib/effect"
 
 const skills: Skill.Info[] = [
@@ -41,6 +42,28 @@ const build: Agent.Info = {
   mode: "primary",
   permission: Permission.fromConfig({ "*": "allow" }),
   options: {},
+}
+
+const knowledgeContext: Knowledge.Context = {
+  counts: { entities: 1, claims: 2, edges: 1 },
+  contradictions: [
+    {
+      id: "knc_1" as Knowledge.ContextClaim["id"],
+      statement: "Amounts conflict between pages",
+      status: "contradicted",
+      source_id: "S2",
+    },
+  ],
+  claims: [
+    {
+      id: "knc_2" as Knowledge.ContextClaim["id"],
+      statement: "Scholarship requires 3.10 GPA",
+      status: "verified",
+      confidence: "high",
+      source_id: "S1",
+    },
+  ],
+  entities: [{ id: "kne_1" as Knowledge.ContextEntity["id"], kind: "organization", name: "Troy University" }],
 }
 
 const it = testEffect(
@@ -80,6 +103,14 @@ const it = testEffect(
         }),
       ),
     ],
+  ]),
+)
+
+const knowledgeIt = testEffect(
+  LayerNode.compile(SystemPrompt.node, [
+    [MCP.node, Layer.mock(MCP.Service, { instructions: () => Effect.succeed([]) })],
+    [Skill.node, Layer.mock(Skill.Service, { available: () => Effect.succeed([]) })],
+    [Knowledge.node, Layer.mock(Knowledge.Service, { context: () => Effect.succeed(knowledgeContext) })],
   ]),
 )
 
@@ -163,6 +194,26 @@ describe("session.system", () => {
           "</mcp_instructions>",
         ].join("\n"),
       )
+    }),
+  )
+})
+
+describe("session.system knowledge context", () => {
+  knowledgeIt.instance("injects prior knowledge with contradictions first", () =>
+    Effect.gen(function* () {
+      const prompt = yield* SystemPrompt.Service
+      const output = yield* prompt.knowledgeContext()
+
+      expect(output).toBeDefined()
+      expect(output).toContain('<knowledge_base entities="1" claims="2" edges="1">')
+      expect(output).toContain("<contradictions")
+      expect(output).toContain("Amounts conflict between pages")
+      expect(output).toContain('status="verified" source="S1"')
+      expect(output).toContain("Scholarship requires 3.10 GPA")
+      expect(output).toContain('<entity kind="organization">Troy University</entity>')
+      // Contradictions must appear before ordinary claims.
+      expect(output!.indexOf("<contradictions")).toBeLessThan(output!.indexOf("<claims>"))
+      expect(output).toContain("not as externally verified truth")
     }),
   )
 })

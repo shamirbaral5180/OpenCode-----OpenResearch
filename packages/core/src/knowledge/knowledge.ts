@@ -63,6 +63,29 @@ export interface Neighbor {
   readonly node: { readonly id: string; readonly kind: KnowledgeSchema.NodeKind }
 }
 
+export interface ContextClaim {
+  readonly id: KnowledgeSchema.ClaimID
+  readonly statement: string
+  readonly status: KnowledgeSchema.ClaimStatus
+  readonly confidence?: KnowledgeSchema.Confidence
+  readonly source_id?: string
+  readonly source_topic?: string
+}
+
+export interface ContextEntity {
+  readonly id: KnowledgeSchema.EntityID
+  readonly kind: KnowledgeSchema.EntityKind
+  readonly name: string
+}
+
+// Prior knowledge for prompt injection, ordered most-relevant-first.
+export interface Context {
+  readonly counts: { readonly entities: number; readonly claims: number; readonly edges: number }
+  readonly contradictions: ReadonlyArray<ContextClaim>
+  readonly claims: ReadonlyArray<ContextClaim>
+  readonly entities: ReadonlyArray<ContextEntity>
+}
+
 export interface Interface {
   readonly upsertEntity: (input: KnowledgeSchema.EntityInput) => Effect.Effect<KnowledgeSchema.Entity>
   readonly getEntity: (projectID: ProjectSchema.ID, id: KnowledgeSchema.EntityID) => Effect.Effect<KnowledgeSchema.Entity | undefined>
@@ -102,6 +125,10 @@ export interface Interface {
   }) => Effect.Effect<ReadonlyArray<Neighbor>>
   readonly removeEdge: (projectID: ProjectSchema.ID, id: KnowledgeSchema.EdgeID) => Effect.Effect<boolean>
 
+  readonly context: (input?: {
+    projectID: ProjectSchema.ID
+    limit?: number
+  }) => Effect.Effect<Context | undefined>
   readonly clear: (projectID: ProjectSchema.ID) => Effect.Effect<void>
 }
 
@@ -468,6 +495,86 @@ const layer = Layer.effect(
       return removed !== undefined
     })
 
+    const toContextClaim = (row: ClaimRow): ContextClaim => ({
+      id: row.id,
+      statement: row.statement,
+      status: row.status,
+      confidence: row.confidence ?? undefined,
+      source_id: row.source_id ?? undefined,
+      source_topic: row.source_topic ?? undefined,
+    })
+
+    const context = Effect.fn("Knowledge.context")(function* (input?: {
+      projectID: ProjectSchema.ID
+      limit?: number
+    }) {
+      if (!input) return undefined
+      const limit = input.limit ?? 20
+      const [claimCount, entityCount, edgeCount] = yield* Effect.all([
+        db
+          .select({ id: KnowledgeClaimTable.id })
+          .from(KnowledgeClaimTable)
+          .where(eq(KnowledgeClaimTable.project_id, input.projectID))
+          .all(),
+        db
+          .select({ id: KnowledgeEntityTable.id })
+          .from(KnowledgeEntityTable)
+          .where(eq(KnowledgeEntityTable.project_id, input.projectID))
+          .all(),
+        db
+          .select({ id: KnowledgeEdgeTable.id })
+          .from(KnowledgeEdgeTable)
+          .where(eq(KnowledgeEdgeTable.project_id, input.projectID))
+          .all(),
+      ]).pipe(Effect.orDie)
+
+      // Contradictions first: they are the most decision-relevant prior knowledge.
+      const contradictionRows = yield* db
+        .select()
+        .from(KnowledgeClaimTable)
+        .where(
+          and(
+            eq(KnowledgeClaimTable.project_id, input.projectID),
+            eq(KnowledgeClaimTable.status, "contradicted"),
+          ),
+        )
+        .all()
+        .pipe(Effect.orDie)
+      const recentClaimRows = yield* db
+        .select()
+        .from(KnowledgeClaimTable)
+        .where(eq(KnowledgeClaimTable.project_id, input.projectID))
+        .all()
+        .pipe(Effect.orDie)
+      const entityRows = yield* db
+        .select()
+        .from(KnowledgeEntityTable)
+        .where(eq(KnowledgeEntityTable.project_id, input.projectID))
+        .all()
+        .pipe(Effect.orDie)
+
+      const byRecency = (a: ClaimRow, b: ClaimRow) => b.time_created - a.time_created
+      const contradictions = contradictionRows.toSorted(byRecency).slice(0, limit).map(toContextClaim)
+      const claims = recentClaimRows
+        .toSorted(byRecency)
+        .filter((row) => row.status !== "contradicted")
+        .slice(0, limit)
+        .map(toContextClaim)
+      const entities = entityRows
+        .toSorted((a, b) => b.time_created - a.time_created)
+        .slice(0, limit)
+        .map((row): ContextEntity => ({ id: row.id, kind: row.kind, name: row.name }))
+
+      if (claimCount.length === 0 && entityCount.length === 0 && edgeCount.length === 0) return undefined
+
+      return {
+        counts: { entities: entityCount.length, claims: claimCount.length, edges: edgeCount.length },
+        contradictions,
+        claims,
+        entities,
+      } satisfies Context
+    })
+
     const clear = Effect.fn("Knowledge.clear")(function* (projectID: ProjectSchema.ID) {
       yield* db
         .delete(KnowledgeEdgeTable)
@@ -500,6 +607,7 @@ const layer = Layer.effect(
       link,
       neighbors,
       removeEdge,
+      context,
       clear,
     })
   }),

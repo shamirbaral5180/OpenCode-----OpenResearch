@@ -22,6 +22,7 @@ import { AbsolutePath } from "@openresearch-ai/core/schema"
 import { Location } from "@openresearch-ai/core/location"
 import { LocationServiceMap, locationServiceMapLayer } from "@openresearch-ai/core/location-services"
 import { Reference } from "@openresearch-ai/core/reference"
+import { Knowledge } from "@openresearch-ai/core/knowledge/knowledge"
 import { MCP } from "@/mcp"
 import { PermissionV1 } from "@openresearch-ai/core/v1/permission"
 
@@ -54,6 +55,7 @@ export interface Interface {
   readonly environment: (model: Provider.Model) => Effect.Effect<string[]>
   readonly skills: (agent: Agent.Info) => Effect.Effect<string | undefined>
   readonly mcp: (agent: Agent.Info, permission?: PermissionV1.Ruleset) => Effect.Effect<string | undefined>
+  readonly knowledgeContext: () => Effect.Effect<string | undefined>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@openresearch/SystemPrompt") {}
@@ -63,6 +65,7 @@ const layer = Layer.effect(
   Effect.gen(function* () {
     const skill = yield* Skill.Service
     const mcp = yield* MCP.Service
+    const knowledge = yield* Knowledge.Service
     const locations = yield* LocationServiceMap.Service
 
     return Service.of({
@@ -135,6 +138,53 @@ const layer = Layer.effect(
           "</mcp_instructions>",
         ].join("\n")
       }),
+
+      // Surface prior project knowledge so a new session benefits from earlier runs
+      // instead of starting blank. Contradictions are the most valuable signal, so
+      // they are listed first and called out explicitly.
+      knowledgeContext: Effect.fn("SystemPrompt.knowledgeContext")(function* () {
+        const ctx = yield* InstanceState.context
+        const context = yield* knowledge.context({ projectID: ctx.project.id }).pipe(
+          Effect.catchCause(() => Effect.succeed(undefined)),
+        )
+        if (!context) return
+
+        const total = context.counts.entities + context.counts.claims + context.counts.edges
+        if (total === 0) return
+
+        const lines: string[] = [
+          "Prior research for this project is stored in the local knowledge base. Treat it as earlier findings from this project, not as externally verified truth, and re-verify before relying on it.",
+          `<knowledge_base entities="${context.counts.entities}" claims="${context.counts.claims}" edges="${context.counts.edges}">`,
+        ]
+
+        if (context.contradictions.length > 0) {
+          lines.push(`  <contradictions note="conflicting evidence was recorded; resolve or explain before asserting a conclusion">`)
+          for (const claim of context.contradictions) {
+            lines.push(`    <claim source="${claim.source_id ?? "unknown"}">${claim.statement}</claim>`)
+          }
+          lines.push("  </contradictions>")
+        }
+
+        if (context.claims.length > 0) {
+          lines.push(`  <claims>`)
+          for (const claim of context.claims) {
+            const source = claim.source_id ? ` source="${claim.source_id}"` : ""
+            lines.push(`    <claim status="${claim.status}"${source}>${claim.statement}</claim>`)
+          }
+          lines.push("  </claims>")
+        }
+
+        if (context.entities.length > 0) {
+          lines.push(`  <entities>`)
+          for (const entity of context.entities) {
+            lines.push(`    <entity kind="${entity.kind}">${entity.name}</entity>`)
+          }
+          lines.push("  </entities>")
+        }
+
+        lines.push("</knowledge_base>")
+        return lines.join("\n")
+      }),
     })
   }),
 )
@@ -148,7 +198,7 @@ const locationServiceMapNode = LayerNode.make({
 export const node = LayerNode.make({
   service: Service,
   layer: layer,
-  deps: [Skill.node, MCP.node, locationServiceMapNode],
+  deps: [Skill.node, MCP.node, Knowledge.node, locationServiceMapNode],
 })
 
 export * as SystemPrompt from "./system"
