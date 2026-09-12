@@ -70,7 +70,10 @@ const layer = Layer.effect(
       return {
         ...Info.empty(id),
         system: ResearchPrompt.prompt(id),
-        mode: id === "research-scout" || id === "research-reviewer" ? "subagent" : "primary",
+        mode:
+          id === "research-scout" || id === "research-reviewer" || id === "research-redteam"
+            ? "subagent"
+            : "primary",
         hidden: !ResearchPrompt.isResearch(id),
         steps: ResearchPrompt.steps,
         permissions: ResearchPrompt.isResearch(id)

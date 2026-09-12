@@ -51,7 +51,7 @@ describe("locked research agents", () => {
   it.effect("limits tool access and keeps reviewers read-only", () =>
     Effect.gen(function* () {
       const agents = yield* AgentV2.Service
-      for (const name of ["research", "research-scout", "research-reviewer"]) {
+      for (const name of ["research", "research-scout", "research-reviewer", "research-redteam"]) {
         const agent = (yield* agents.resolve(name))!
         expect(agent.system).toContain(ResearchPrompt.system)
         for (const action of [
@@ -70,6 +70,9 @@ describe("locked research agents", () => {
           name === "research" ? "allow" : "deny",
         )
         expect(PermissionV2.evaluate("task", "research-reviewer", agent.permissions).effect).toBe(
+          name === "research" ? "allow" : "deny",
+        )
+        expect(PermissionV2.evaluate("task", "research-redteam", agent.permissions).effect).toBe(
           name === "research" ? "allow" : "deny",
         )
         expect(PermissionV2.evaluate("read", ".env", agent.permissions).effect).toBe("deny")

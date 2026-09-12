@@ -77,6 +77,17 @@ Server-side must never be the only option.
 - Show an estimated cost before launching a heavy multi-agent run and prefer
   "propose plan, user confirms" for expensive runs over silent autonomy.
 
+### Implemented orchestration
+
+- Roles: `research` (planner/synthesizer), `research-scout` (discovery),
+  `research-reviewer` (verification), `research-redteam` (adversarial
+  falsification). All workers are read-only and cannot delegate or write reports.
+- Limits enforced in code at the task chokepoint, not prompt-only:
+  `max_concurrent_subagents` (default 6), `subagent_depth` (default 1, workers do
+  not re-spawn), and `research_budget_usd` (default 3) summed over the subagent
+  session subtree. `0` disables a guard.
+- Remaining: an explicit "propose plan, confirm" gate and a pre-run cost estimate.
+
 ## Capability roadmap
 
 Ranked by research impact ("wow" factor), not by implementation cost.

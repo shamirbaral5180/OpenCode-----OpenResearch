@@ -17,7 +17,7 @@ export function permissions(reportPattern = "reports/**", readonly = false): Non
     external_directory: "ask",
     doom_loop: "ask",
     edit: readonly ? "deny" : { "*": "deny", [reportPattern]: "allow" },
-    task: readonly ? "deny" : { "*": "deny", "research-scout": "allow", "research-reviewer": "allow" },
+    task: readonly ? "deny" : { "*": "deny", "research-scout": "allow", "research-reviewer": "allow", "research-redteam": "allow" },
     todowrite: readonly ? "deny" : "allow",
   } as const
 }
@@ -44,7 +44,7 @@ export function effective(config: ConfigV1.Info): ConfigV1.Info {
           permission: ResearchPrompt.isResearch(name)
             ? permissions("reports/**", name !== "research")
             : { "*": "deny" },
-          mode: name === "research-scout" || name === "research-reviewer" ? "subagent" : "primary",
+          mode: name === "research-scout" || name === "research-reviewer" || name === "research-redteam" ? "subagent" : "primary",
           hidden: !ResearchPrompt.isResearch(name),
         },
       ]),

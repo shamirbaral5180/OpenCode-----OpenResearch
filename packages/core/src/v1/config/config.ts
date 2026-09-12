@@ -84,6 +84,14 @@ export const Info = Schema.Struct({
   subagent_depth: Schema.optional(NonNegativeInt).annotate({
     description: "Maximum subagent nesting depth. Defaults to 1, which prevents subagents from launching subagents.",
   }),
+  max_concurrent_subagents: Schema.optional(NonNegativeInt).annotate({
+    description:
+      "Maximum concurrent research subagents under one primary session. Defaults to 6. 0 disables the guard.",
+  }),
+  research_budget_usd: Schema.optional(NonNegativeInt).annotate({
+    description:
+      "Cost ceiling in USD for one research session's subagent tree. Defaults to 3. 0 disables the guard.",
+  }),
   username: Schema.optional(Schema.String).annotate({
     description: "Custom username to display in conversations instead of system username",
   }),

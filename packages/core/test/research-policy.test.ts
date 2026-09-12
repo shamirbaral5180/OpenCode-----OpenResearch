@@ -50,3 +50,33 @@ describe("research configuration lock", () => {
     expect(ResearchPolicy.effective({}).compaction?.auto).toBe(true)
   })
 })
+
+describe("multi-agent orchestration policy", () => {
+  test("exposes planner, scout, reviewer, and redteam roles", () => {
+    for (const name of ["research", "research-scout", "research-reviewer", "research-redteam"]) {
+      expect(ResearchPrompt.isResearch(name)).toBe(true)
+      expect(ResearchPrompt.agents).toContain(name)
+    }
+    expect(ResearchPrompt.agents).not.toContain("research-planner")
+  })
+
+  test("redteam prompt frames an adversarial falsification role", () => {
+    const prompt = ResearchPrompt.prompt("research-redteam")
+    expect(prompt).toContain("adversarial")
+    expect(prompt).toContain("falsify")
+    expect(prompt).toContain("Do not write files or delegate")
+  })
+
+  test("primary research allows delegating to redteam but subagents cannot delegate", () => {
+    const primary = ResearchPolicy.permissions()
+    expect(primary.task).toMatchObject({ "research-redteam": "allow" })
+    const readonly = ResearchPolicy.permissions("reports/**", true)
+    expect(readonly.task).toBe("deny")
+  })
+
+  test("exposes bounded orchestration defaults", () => {
+    expect(ResearchPrompt.orchestration.maxConcurrentWorkers).toBeGreaterThan(0)
+    expect(ResearchPrompt.orchestration.subagentDepth).toBeGreaterThan(0)
+    expect(ResearchPrompt.orchestration.defaultBudgetUsd).toBeGreaterThan(0)
+  })
+})

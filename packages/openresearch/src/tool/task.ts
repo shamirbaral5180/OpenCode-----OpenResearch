@@ -14,12 +14,41 @@ import { Effect, Exit, Schema, Scope } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Database } from "@openresearch-ai/core/database/database"
+import { ResearchPrompt } from "@openresearch-ai/core/plugin/research"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
   resolvePromptParts(template: string): Effect.Effect<SessionPrompt.PromptInput["parts"]>
   prompt(input: SessionPrompt.PromptInput): Effect.Effect<SessionV1.WithParts>
 }
+
+const ResearchOrchestration = ResearchPrompt.orchestration
+
+const rootSession = Effect.fnUntraced(function* (sessions: Session.Interface, start: Session.Info) {
+  let current = start
+  while (current.parentID) current = yield* sessions.get(current.parentID)
+  return current
+})
+
+// Sum the cost of every session in the subagent subtree, excluding the root itself.
+const subagentTreeCost = Effect.fnUntraced(function* (sessions: Session.Interface, rootID: SessionID) {
+  const all = yield* sessions.list()
+  const byParent = new Map<string, Session.Info[]>()
+  for (const session of all) {
+    if (!session.parentID) continue
+    const list = byParent.get(session.parentID) ?? []
+    list.push(session)
+    byParent.set(session.parentID, list)
+  }
+  let total = 0
+  const queue = [...(byParent.get(rootID) ?? [])]
+  while (queue.length > 0) {
+    const session = queue.pop()!
+    total += session.cost ?? 0
+    queue.push(...(byParent.get(session.id) ?? []))
+  }
+  return total
+})
 
 const id = "task"
 const BACKGROUND_DESCRIPTION = [
@@ -108,12 +137,42 @@ export const TaskTool = Tool.define(
         depth++
         current = yield* sessions.get(current.parentID)
       }
-      if (depth >= (cfg.subagent_depth ?? 1)) {
+      const maxDepth = cfg.subagent_depth ?? ResearchOrchestration.subagentDepth
+      if (depth >= maxDepth) {
         return yield* Effect.fail(
           new Error(
-            `Subagent depth limit reached (${cfg.subagent_depth ?? 1}). Increase "subagent_depth" to allow nested subagents.`,
+            `Subagent depth limit reached (${maxDepth}). Increase "subagent_depth" to allow nested subagents.`,
           ),
         )
+      }
+
+      // Bound the research fan-out: cap concurrent sibling workers under the root research
+      // session, and refuse to launch new work once the run's cost ceiling is exceeded.
+      const root = yield* rootSession(sessions, parent)
+      if (root.agent === "research") {
+        const jobs = yield* background.list()
+        const running = jobs.filter(
+          (job) =>
+            job.status === "running" &&
+            job.type === id &&
+            (job.metadata?.parentSessionId === root.id || job.metadata?.rootSessionId === root.id),
+        ).length
+        const maxConcurrent = cfg.max_concurrent_subagents ?? ResearchOrchestration.maxConcurrentWorkers
+        if (maxConcurrent > 0 && running >= maxConcurrent) {
+          return yield* Effect.fail(
+            new Error(
+              `Concurrent research subagent limit reached (${maxConcurrent}). Wait for a running subagent to finish before starting another.`,
+            ),
+          )
+        }
+        const budget = cfg.research_budget_usd ?? ResearchOrchestration.defaultBudgetUsd
+        if (budget > 0 && (yield* subagentTreeCost(sessions, root.id)) >= budget) {
+          return yield* Effect.fail(
+            new Error(
+              `Research budget ceiling reached ($${budget}). Increase "research_budget_usd" or resolve open subagents before starting more work.`,
+            ),
+          )
+        }
       }
 
       if (!ctx.extra?.bypassAgentCheck) {
@@ -185,6 +244,7 @@ export const TaskTool = Tool.define(
       const metadata = {
         parentSessionId: ctx.sessionID,
         sessionId: nextSession.id,
+        rootSessionId: root.id,
         model,
         ...(runInBackground ? { background: true } : {}),
       }

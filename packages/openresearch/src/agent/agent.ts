@@ -153,7 +153,7 @@ const layer = Layer.effect(
             "*": "deny",
             [`${path.relative(ctx.worktree, path.join(ctx.directory, "reports")).replaceAll("\\", "/")}/**`]: "allow",
           },
-          task: { "*": "deny", "research-scout": "allow", "research-reviewer": "allow" },
+          task: { "*": "deny", "research-scout": "allow", "research-reviewer": "allow", "research-redteam": "allow" },
           plan_enter: "deny",
           plan_exit: "deny",
         })
@@ -177,6 +177,10 @@ const layer = Layer.effect(
               [
                 "research-reviewer",
                 "Independently verify claims, citation support, contradictions, and coverage gaps. Return an evidence audit.",
+              ],
+              [
+                "research-redteam",
+                "Adversarially challenge the leading conclusions. Seek disconfirming evidence, retractions, methodological flaws, and alternative explanations. Return what does not survive scrutiny.",
               ],
             ].map(([name, description]) => [
               name,

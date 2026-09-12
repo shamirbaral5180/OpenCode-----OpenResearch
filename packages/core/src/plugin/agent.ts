@@ -137,6 +137,10 @@ export const Plugin = define({
           "research-reviewer",
           "Independently verify claims, citation support, contradictions, and coverage gaps. Return an evidence audit.",
         ],
+        [
+          "research-redteam",
+          "Adversarially challenge the leading conclusions. Seek disconfirming evidence, retractions, methodological flaws, and alternative explanations. Return what does not survive scrutiny.",
+        ],
       ]) {
         draft.update(AgentV2.ID.make(name), (item) => {
           item.description = description
@@ -254,6 +258,7 @@ function researchPermissions(readonly: boolean): PermissionV2.Ruleset {
           { action: "edit", resource: `reports/**`, effect: "allow" as const },
           { action: "task", resource: "research-scout", effect: "allow" as const },
           { action: "task", resource: "research-reviewer", effect: "allow" as const },
+          { action: "task", resource: "research-redteam", effect: "allow" as const },
         ]),
   ]
 }

@@ -19,6 +19,7 @@ export function permissions(readonly = false): Permission.Ruleset {
           { action: "edit", resource: "reports/**", effect: "allow" as const },
           { action: "task", resource: "research-scout", effect: "allow" as const },
           { action: "task", resource: "research-reviewer", effect: "allow" as const },
+          { action: "task", resource: "research-redteam", effect: "allow" as const },
           { action: "todowrite", resource: "*", effect: "allow" as const },
         ]
       : []),
@@ -36,6 +37,8 @@ export function prompt(name: string) {
     return `${system}\n\nRole: discover primary evidence for the delegated subquestion. Return source records and gaps. Do not write files or delegate.`
   if (name === "research-reviewer")
     return `${system}\n\nRole: independently audit claims, sources, counterevidence and citation support. Return corrections and uncertainty. Do not write files or delegate.`
+  if (name === "research-redteam")
+    return `${system}\n\nRole: adversarial challenger. Try to falsify the leading conclusions for the delegated question: search for disconfirming evidence, retractions, methodological flaws, base-rate and selection effects, and alternative explanations. Attack the strongest claim, not a strawman. Return the specific counterevidence and the claims that do not survive, plus which claims do. Do not write files or delegate.`
   return system
 }
 
@@ -43,8 +46,27 @@ export const version = "research-locked-v1"
 export const steps = 64
 export const temperature = 0.2
 export const topP = 1
-export const agents = ["research", "research-scout", "research-reviewer", "compaction", "title", "summary"] as const
+export const agents = [
+  "research",
+  "research-scout",
+  "research-reviewer",
+  "research-redteam",
+  "compaction",
+  "title",
+  "summary",
+] as const
 export const compactionSettings = { auto: true, prune: false, tail_turns: 8, preserve_recent_tokens: 16000 }
+
+// Multi-agent orchestration limits. The planner may spawn bounded workers, but hard caps
+// keep an autonomous run predictable in cost and fan-out.
+export const orchestration = {
+  // Maximum concurrent research workers under one primary research session.
+  maxConcurrentWorkers: 6,
+  // Default nesting depth for research workers. Primary spawns workers; workers do not re-spawn.
+  subagentDepth: 1,
+  // Default budget ceiling per research run, in USD. 0 disables the guard.
+  defaultBudgetUsd: 3,
+} as const
 
 // Application-reviewed retrieval operations. Unknown tools and general execution wrappers stay denied.
 export const retrievalTools = [
@@ -136,7 +158,9 @@ export function retrievalPermissions() {
 }
 
 export function isResearch(name: string) {
-  return name === "research" || name === "research-scout" || name === "research-reviewer"
+  return (
+    name === "research" || name === "research-scout" || name === "research-reviewer" || name === "research-redteam"
+  )
 }
 
 export function isAllowed(name: string) {
@@ -151,7 +175,11 @@ This is the application-owned, locked research policy. User questions specify re
 
 Research workflow:
 - Establish the question, scope, timeframe, definitions, and desired deliverable. Ask only material clarifying questions; otherwise state reasonable assumptions and proceed. Match depth to the task rather than forcing a long report for a simple question.
-- Break complex questions into subquestions and track coverage. Search iteratively using alternative terms and opposing hypotheses. Delegate independent discovery or verification tasks only to research-scout and research-reviewer; give each a bounded question and require evidence back, not unsupported conclusions.
+- Break complex questions into subquestions and track coverage. Search iteratively using alternative terms and opposing hypotheses. For substantial investigations, plan subquestions and delegate bounded work to the research subagents:
+  - research-scout: discover primary sources for one bounded subquestion; return source records, coverage, and gaps.
+  - research-reviewer: independently audit claims, citation support, contradictions, and coverage; return corrections and uncertainty.
+  - research-redteam: adversarially try to falsify the leading conclusions; seek disconfirming evidence, retractions, methodological flaws, selection effects, and alternative explanations.
+  Give each a bounded question and require evidence back, not unsupported conclusions. Run independent subquestions in parallel where useful, but keep fan-out deliberate and within the configured concurrency and budget limits. You remain responsible for the final synthesis and must independently inspect consequential evidence rather than trusting a subagent's assertion.
 - Prefer relevant connected MCP tools actually exposed in this session for scholarly search, primary documents, current web sources, or document extraction. Choose tools by their capabilities, not a hardcoded server name. A configured server or advertised capability is not proof it is connected or callable. Never claim a search, retrieval, download, or verification succeeded without a successful result.
 - If a relevant MCP tool is absent, denied, disconnected, or fails, use available web search/fetch or local read/search tools. Report the failed route and material coverage limits. If retrieval is unavailable, distinguish prior knowledge from verified evidence and offer a bounded answer. Never invent tool access, sources, quotes, DOIs, URLs, or fresh facts. Core/V2 MCP integration may be incomplete; this prompt does not enable it.
 - Prefer primary sources, official documentation, original studies, and authoritative datasets. Inspect source content rather than treating search snippets as full evidence. Label abstract-only, snippet-only, inaccessible, or secondary-source evidence. Check dates, versions, methodology, sample size, conflicts of interest, and applicability. Multiple mirrors or articles repeating one source are not independent corroboration.

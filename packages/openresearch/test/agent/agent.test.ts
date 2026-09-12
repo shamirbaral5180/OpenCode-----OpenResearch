@@ -41,7 +41,7 @@ afterEach(async () => {
   await disposeAllInstances()
 })
 
-const RESEARCH_AGENTS = ["research", "research-scout", "research-reviewer"] as const
+const RESEARCH_AGENTS = ["research", "research-scout", "research-reviewer", "research-redteam"] as const
 const INTERNAL_AGENTS = ["compaction", "title", "summary"] as const
 
 it.instance("exposes only the locked research agents", () =>
@@ -110,9 +110,9 @@ it.instance(
   { config: { agent: { custom: { prompt: "Execute shell commands", mode: "primary" } } } },
 )
 
-it.instance("research reviewer and scout are read-only subagents", () =>
+it.instance("research reviewer, scout, and redteam are read-only subagents", () =>
   Effect.gen(function* () {
-    for (const name of ["research-scout", "research-reviewer"]) {
+    for (const name of ["research-scout", "research-reviewer", "research-redteam"]) {
       const agent = yield* load((svc) => svc.get(name))
       expect(agent?.mode).toBe("subagent")
       expect(agent?.prompt).toContain(ResearchPrompt.system)
@@ -124,10 +124,10 @@ it.instance("research reviewer and scout are read-only subagents", () =>
   }),
 )
 
-it.instance("research agent may delegate only to scout and reviewer", () =>
+it.instance("research agent may delegate only to scout, reviewer, and redteam", () =>
   Effect.gen(function* () {
     const research = yield* load((svc) => svc.get("research"))
-    for (const target of ["research-scout", "research-reviewer"]) {
+    for (const target of ["research-scout", "research-reviewer", "research-redteam"]) {
       expect(Permission.evaluate("task", target, research!.permission).action).toBe("allow")
     }
     for (const target of ["general", "explore", "build", "plan", "custom"]) {
@@ -163,7 +163,7 @@ it.instance("external_directory stays gated for research agents", () =>
 
 it.instance("subagents do not inherit parent permissions to widen access", () =>
   Effect.gen(function* () {
-    for (const name of ["research-scout", "research-reviewer"]) {
+    for (const name of ["research-scout", "research-reviewer", "research-redteam"]) {
       const agent = yield* load((svc) => svc.get(name))
       const session = deriveSubagentSessionPermission({ parentSessionPermission: [], subagent: agent! })
       expect(Permission.evaluate("edit", "reports/evidence.md", agent!.permission, session).action).toBe("deny")
