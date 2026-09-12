@@ -78,6 +78,11 @@ export const ReportWriteTool = Tool.define<typeof Parameters, Metadata, FSUtil.S
             evidence: evidence.records,
           })
 
+          // A corrupt ledger line must block the write: report validation only sees successfully
+          // parsed records, so unparsed lines would otherwise be silently dropped.
+          for (const error of evidence.errors) validation.errors.push(`evidence ledger: ${error}`)
+          if (evidence.errors.length > 0) validation.valid = false
+
           if (!validation.valid) {
             const metadata: Metadata = {
               topic: params.topic,

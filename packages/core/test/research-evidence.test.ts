@@ -31,6 +31,22 @@ test("parse ignores blank lines and reports invalid JSON without throwing", () =
   expect(result.errors).toHaveLength(1)
 })
 
+test("parse rejects records missing required fields and invalid values", () => {
+  const good = JSON.stringify(record("S1"))
+  const missing = JSON.stringify({ source_id: "S2" })
+  const badVerdict = JSON.stringify({ ...record("S3"), verdict: "maybe" })
+  const result = ResearchEvidence.parse(`\n${good}\n${missing}\n${badVerdict}\nnot json\n`)
+  expect(result.records.map((item) => item.source_id)).toEqual(["S1"])
+  expect(result.errors).toHaveLength(3)
+})
+
+test("collapse keeps the latest record for each source id", () => {
+  const superseded: ResearchEvidence.Record = { ...record("S1"), verdict: "unverified" }
+  const latest: ResearchEvidence.Record = { ...record("S1"), verdict: "verified" }
+  const other = record("S2")
+  expect(ResearchEvidence.collapse([superseded, latest, other])).toEqual([latest, other])
+})
+
 test("append rejects duplicate source ids and accepts new ones", () => {
   const existing = [record("S1")]
   expect(ResearchEvidence.append(existing, record("S1")).ok).toBe(false)
@@ -61,4 +77,28 @@ test("appendLine writes newline-delimited JSON and rejects duplicates", async ()
   const text = await fs.readFile(path.join(dir.path, "reports", "topic", "evidence.jsonl"), "utf8")
   const parsed = ResearchEvidence.parse(text)
   expect(parsed.records.map((item) => item.source_id)).toEqual(["S1", "S2"])
+})
+
+test("appendLine with update supersedes without a duplicate-add error", async () => {
+  await using dir = await tmpdir()
+  await withFs((f) => ResearchEvidence.appendLine(f, dir.path, "topic", record("S1")))
+  const updated = await withFs((f) =>
+    ResearchEvidence.appendLine(f, dir.path, "topic", { ...record("S1"), verdict: "contradicted" }, "update"),
+  )
+  expect(updated.ok).toBe(true)
+
+  const text = await fs.readFile(path.join(dir.path, "reports", "topic", "evidence.jsonl"), "utf8")
+  // The on-disk ledger stays append-only; the read projection collapses to the latest record.
+  expect(ResearchEvidence.parse(text).records).toHaveLength(2)
+  const read = await withFs((f) => ResearchEvidence.read(f, dir.path, "topic"))
+  expect(read.records).toHaveLength(1)
+  expect(read.records[0]?.verdict).toBe("contradicted")
+})
+
+test("appendLine with update rejects an unknown source id", async () => {
+  await using dir = await tmpdir()
+  const result = await withFs((f) =>
+    ResearchEvidence.appendLine(f, dir.path, "topic", record("S9"), "update"),
+  )
+  expect(result.ok).toBe(false)
 })

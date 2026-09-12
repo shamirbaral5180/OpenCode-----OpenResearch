@@ -91,6 +91,34 @@ describe("research artifact tool permissions", () => {
     }),
   )
 
+  it.instance("evidence update supersedes an existing source without a duplicate-add error", () =>
+    Effect.gen(function* () {
+      const test = yield* TestInstance
+      const { ctx } = makeCtx()
+      const info = yield* EvidenceTool
+      const tool = yield* info.init()
+      const input = { topic: "topic", source_id: "S1", claim_id: "C1", claim: "c", access_level: "full-text" } as const
+
+      yield* tool.execute({ action: "add", ...input, verdict: "unverified" }, ctx)
+      const updated = yield* tool.execute({ action: "update", ...input, verdict: "verified" }, ctx)
+      const metadata = updated.metadata as { source_id?: string; error?: string }
+      expect(metadata.error).toBeUndefined()
+      expect(metadata.source_id).toBe("S1")
+
+      const listed = yield* tool.execute({ action: "list", topic: "topic" }, ctx)
+      const records = (JSON.parse(listed.output) as { records: readonly { source_id: string; verdict: string }[] })
+        .records
+      expect(records).toHaveLength(1)
+      expect(records[0]?.verdict).toBe("verified")
+
+      const ledger = yield* Effect.promise(() =>
+        Bun.file(path.join(test.directory, "reports", "topic", "evidence.jsonl")).text(),
+      )
+      // On disk both records remain; the list projection collapses to the latest.
+      expect(ledger.trim().split("\n")).toHaveLength(2)
+    }),
+  )
+
   it.instance("report_write writes report, sources, and html after validation", () =>
     Effect.gen(function* () {
       const test = yield* TestInstance
@@ -120,6 +148,34 @@ describe("research artifact tool permissions", () => {
       expect(files.sources).toBe(true)
       expect(files.html).toBe(true)
       expect(files.sourcesText).toContain("S1")
+    }),
+  )
+
+  it.instance("report_write rejects a corrupt evidence ledger line", () =>
+    Effect.gen(function* () {
+      const test = yield* TestInstance
+      const { ctx } = makeCtx()
+      const evidenceInfo = yield* EvidenceTool
+      const evidence = yield* evidenceInfo.init()
+      for (const id of ["S1", "S2"]) {
+        yield* evidence.execute(
+          { action: "add", topic: "topic", source_id: id, claim_id: "C1", claim: "c", access_level: "full-text" },
+          ctx,
+        )
+      }
+      const ledger = path.join(test.directory, "reports", "topic", "evidence.jsonl")
+      const content = yield* Effect.promise(() => Bun.file(ledger).text())
+      yield* Effect.promise(() => Bun.write(ledger, `${content}{"source_id":"broken"}\n`))
+
+      const info = yield* ReportWriteTool
+      const tool = yield* info.init()
+      const result = yield* tool.execute({ topic: "topic", report }, ctx)
+      const metadata = result.metadata as { written: boolean; errors: string[] }
+      expect(metadata.written).toBe(false)
+      expect(metadata.errors.some((error) => error.includes("evidence ledger"))).toBe(true)
+      expect(yield* Effect.promise(() => Bun.file(path.join(test.directory, "reports", "topic", "report.md")).exists())).toBe(
+        false,
+      )
     }),
   )
 })

@@ -135,7 +135,13 @@ export const EvidenceTool = Tool.define<typeof Parameters, Metadata, FSUtil.Serv
             return { title: "evidence error", output: metadata.error ?? "", metadata }
           }
 
-          const written = yield* ResearchEvidence.appendLine(fs, instance.directory, params.topic, record)
+          const written = yield* ResearchEvidence.appendLine(
+            fs,
+            instance.directory,
+            params.topic,
+            record,
+            params.action === "update" ? "update" : "add",
+          )
           if (!written.ok) {
             const metadata: Metadata = {
               topic: params.topic,

@@ -107,4 +107,14 @@ describe("research report validation", () => {
     expect(result.valid).toBe(false)
     expect(result.errors.some((error) => error.includes("html citation [S9]"))).toBe(true)
   })
+
+  test("hard-fails when html omits a citation present in the report", () => {
+    const result = ResearchReport.validate({
+      report: report(),
+      html: "<p>X is true [S1].</p>",
+      evidence: [record("S1"), record("S2", "contradicted")],
+    })
+    expect(result.valid).toBe(false)
+    expect(result.errors.some((error) => error.includes("html is missing citation"))).toBe(true)
+  })
 })
