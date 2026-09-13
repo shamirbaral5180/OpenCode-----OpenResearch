@@ -72,6 +72,22 @@ context, multi-agent coordination, and monitoring. Decisions:
 
 Server-side must never be the only option.
 
+### Implemented monitoring (local-first)
+
+- `monitor_watch` table in the local database: topic, recurring question,
+  cadence (hourly/daily/weekly), status, next-run time, run count, and the last
+  session/summary. Watches are project-scoped and stored on device.
+- `MonitorScheduler` runs inside the app (mode **a**): a 60s poll picks up due
+  watches and launches a fresh research session that compares new sources
+  against prior knowledge, records evidence, and updates the knowledge base.
+- A `monitor` tool lets the agent/user create, list, pause, resume, and remove
+  watches.
+- `OPENRESEARCH_MONITORING` gates the scheduler (`local` default, `off` to
+  disable). Server-side monitoring remains a future, explicit opt-in and is never
+  required.
+- Remaining: mode **b** (OS-level local background service that runs when the app
+  is closed) and mode **c** (opt-in server-side).
+
 ## Multi-agent orchestration decisions (deferred, recorded for direction)
 
 - Planner autonomy: medium-high, with hard caps.

@@ -12,6 +12,7 @@ import { ReadTool } from "./read"
 import { TaskTool } from "./task"
 import { Database } from "@openresearch-ai/core/database/database"
 import { Knowledge } from "@openresearch-ai/core/knowledge/knowledge"
+import { Monitor } from "@openresearch-ai/core/monitor/monitor"
 import { TodoWriteTool } from "./todo"
 import { WebFetchTool } from "./webfetch"
 import { WriteTool } from "./write"
@@ -36,6 +37,7 @@ import { EvidenceTool } from "./evidence"
 import { ReportWriteTool } from "./report-write"
 import { KnowledgeTool } from "./knowledge"
 import { ResearchPlanTool } from "./research-plan"
+import { MonitorTool } from "./monitor"
 import * as Truncate from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
 import { Glob } from "@openresearch-ai/core/util/glob"
@@ -131,6 +133,7 @@ const layer = Layer.effect(
     const reportWrite = yield* ReportWriteTool
     const knowledgeTool = yield* KnowledgeTool
     const researchPlanTool = yield* ResearchPlanTool
+    const monitorTool = yield* MonitorTool
     const agent = yield* Agent.Service
     const codeMode = flags.experimentalCodeMode ? yield* Effect.promise(() => import("./code-mode")) : undefined
     const codeModeTool = codeMode ? yield* codeMode.CodeModeTool : undefined
@@ -248,6 +251,7 @@ const layer = Layer.effect(
           reportWrite: Tool.init(reportWrite),
           knowledge: Tool.init(knowledgeTool),
           researchPlan: Tool.init(researchPlanTool),
+          monitor: Tool.init(monitorTool),
           ...(codeModeTool ? { execute: Tool.init(codeModeTool) } : {}),
         })
 
@@ -276,6 +280,7 @@ const layer = Layer.effect(
             tool.reportWrite,
             tool.knowledge,
             tool.researchPlan,
+            tool.monitor,
             ...(tool.execute ? [tool.execute] : []),
             ...(flags.experimentalLspTool ? [tool.lsp] : []),
             ...(flags.experimentalPlanMode && flags.client === "cli" ? [tool.plan] : []),
@@ -483,6 +488,7 @@ export const node = LayerNode.make({
     Database.node,
     Ripgrep.node,
     Knowledge.node,
+    Monitor.node,
   ],
 })
 

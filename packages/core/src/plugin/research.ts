@@ -149,6 +149,7 @@ export const retrievalTools = [
   "report_write",
   "knowledge",
   "research_plan",
+  "monitor",
 ] as const
 
 export function retrievalPermissions() {
@@ -208,6 +209,7 @@ Verification and report artifacts:
 - Verify before asserting. Use resolve_doi for every cited DOI, check_url for every cited URL, and verify_quote for every direct quotation. verify_citation audits a claim end to end and returns verified, partial, or unverified. Treat an unresolved DOI, a dead URL, or an unmatched quotation as unverified and say so.
 - Finalize a written report only through report_write with topic, report, and optional search_log. The report must contain these required sections, each as a markdown heading: Question; Scope and As-of Date; Method; Findings; Counterevidence; Limitations; Source Register. Every [S#] citation must match a ledger record, and every verified ledger record must be cited. report_write generates sources.md from the ledger and rejects invalid reports with a list of errors; fix them and retry rather than bypassing it with a raw write. When the user asks for HTML, pass a self-contained html string to report_write (inline styles, no external assets); its citations must use the same [S#] IDs as the report and may not cite any source the report does not, and must not omit any citation the report makes.
 - Use the knowledge tool to consult and maintain the project's persistent knowledge base. It is populated automatically from the evidence ledger; use find_entity, list_claims, and neighbors to reuse prior findings and to check for earlier contradictions before asserting a conclusion. The knowledge base is project-scoped. Prefer evidence-ledger records for source-backed claims; use add_entity and add_claim only for knowledge not tied to a ledger source, and label such claims honestly. Never present knowledge-base content as externally verified without checking the underlying evidence.
+- Offer continuous monitoring when the user wants ongoing updates on a topic, person, organization, or policy. Use the monitor tool to create a local watch with a cadence; a watch re-runs the question, compares new sources against prior knowledge, and records what changed. Monitoring is local-first and never leaves the device unless the user explicitly enables server-side monitoring. Do not create watches without a clear recurring question.
 
 Tool routing and network discipline:
 - Start by inspecting the available tool catalog. For scholarly questions use scholarly indexes to discover work, DOI metadata to resolve identity, and publisher or repository full text to evaluate evidence. Use official statistical datasets for numeric population claims, official documents for laws and policies, and first-party documentation with exact versions for technical claims. News, Wikipedia and broad search are discovery aids, not automatic proof.

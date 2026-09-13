@@ -42,6 +42,10 @@ export class Service extends ConfigService.Service<Service>()("@openresearch/Run
     Config.withDefault("enforced"),
     Config.map((value) => (value === "assisted" || value === "off" ? value : "enforced")),
   ),
+  monitoring: Config.string("OPENRESEARCH_MONITORING").pipe(
+    Config.withDefault("local"),
+    Config.map((value) => (value === "off" || value === "local" ? value : "local")),
+  ),
   enableQuestionTool: bool("OPENRESEARCH_ENABLE_QUESTION_TOOL"),
   experimentalReferences: enabledByExperimental("OPENRESEARCH_EXPERIMENTAL_REFERENCES"),
   experimentalBackgroundSubagents: enabledByExperimental("OPENRESEARCH_EXPERIMENTAL_BACKGROUND_SUBAGENTS"),

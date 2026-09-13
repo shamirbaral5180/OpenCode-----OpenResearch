@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "34263f42-0df6-493c-8d15-38ec91bb93b0",
+  "id": "cd067921-377b-4d84-9f50-dd5c37e6b446",
   "prevIds": [
-    "de3642cf-e7dc-45eb-89cf-2a6ac7e98903"
+    "34263f42-0df6-493c-8d15-38ec91bb93b0"
   ],
   "ddl": [
     {
@@ -48,6 +48,10 @@
     },
     {
       "name": "knowledge_entity",
+      "entityType": "tables"
+    },
+    {
+      "name": "monitor_watch",
       "entityType": "tables"
     },
     {
@@ -863,6 +867,126 @@
       "name": "time_updated",
       "entityType": "columns",
       "table": "knowledge_entity"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "topic",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "question",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cadence",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_run_at",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "next_run_at",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "run_count",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_session_id",
+      "entityType": "columns",
+      "table": "monitor_watch"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_summary",
+      "entityType": "columns",
+      "table": "monitor_watch"
     },
     {
       "type": "text",
@@ -1905,6 +2029,21 @@
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
+      "name": "fk_monitor_watch_project_id_project_id_fk",
+      "entityType": "fks",
+      "table": "monitor_watch"
+    },
+    {
+      "columns": [
+        "project_id"
+      ],
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
       "name": "fk_permission_project_id_project_id_fk",
       "entityType": "fks",
       "table": "permission"
@@ -2162,6 +2301,15 @@
       "nameExplicit": false,
       "name": "knowledge_entity_pk",
       "table": "knowledge_entity",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "monitor_watch_pk",
+      "table": "monitor_watch",
       "entityType": "pks"
     },
     {
@@ -2464,6 +2612,38 @@
       "name": "knowledge_entity_name_idx",
       "entityType": "indexes",
       "table": "knowledge_entity"
+    },
+    {
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "monitor_watch_project_idx",
+      "entityType": "indexes",
+      "table": "monitor_watch"
+    },
+    {
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false
+        },
+        {
+          "value": "next_run_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "monitor_watch_due_idx",
+      "entityType": "indexes",
+      "table": "monitor_watch"
     },
     {
       "columns": [
