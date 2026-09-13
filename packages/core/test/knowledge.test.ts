@@ -324,6 +324,44 @@ describe("Knowledge service", () => {
     }),
   )
 
+  it.effect("context ranks claims by relevance to the query", () =>
+    Effect.gen(function* () {
+      yield* setup()
+      const knowledge = yield* Knowledge.Service
+
+      yield* knowledge.addClaim({
+        projectID: projectA,
+        statement: "Unrelated note about campus housing",
+        status: "verified",
+      })
+      yield* knowledge.addClaim({
+        projectID: projectA,
+        statement: "The scholarship requires a 3.10 GPA",
+        status: "verified",
+        sourceTopic: "troy-scholarships",
+      })
+
+      const context = yield* knowledge.context({ projectID: projectA, query: "scholarship GPA requirements" })
+      expect(context!.claims[0]!.statement).toBe("The scholarship requires a 3.10 GPA")
+    }),
+  )
+
+  it.effect("context ranks entities by name and co-occurrence", () =>
+    Effect.gen(function* () {
+      yield* setup()
+      const knowledge = yield* Knowledge.Service
+
+      const troy = yield* knowledge.upsertEntity({ projectID: projectA, kind: "organization", name: "Troy University" })
+      yield* knowledge.upsertEntity({ projectID: projectA, kind: "concept", name: "Housing" })
+      // Two claims about Troy raise its co-occurrence above the unrelated entity.
+      yield* knowledge.addClaim({ projectID: projectA, statement: "one", entityIds: [troy.id] })
+      yield* knowledge.addClaim({ projectID: projectA, statement: "two", entityIds: [troy.id] })
+
+      const context = yield* knowledge.context({ projectID: projectA, query: "troy university" })
+      expect(context!.entities[0]!.name).toBe("Troy University")
+    }),
+  )
+
   it.effect("searchEntities matches name and aliases case-insensitively and scopes by project", () =>
     Effect.gen(function* () {
       yield* setup()

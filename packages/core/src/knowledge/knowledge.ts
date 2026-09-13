@@ -6,6 +6,7 @@ import { Database } from "../database/database"
 import { makeGlobalNode } from "../effect/app-node"
 import { ProjectSchema } from "../project/schema"
 import { KnowledgeSchema } from "./schema"
+import { KnowledgeRelevance } from "./relevance"
 import { KnowledgeClaimTable, KnowledgeEdgeTable, KnowledgeEntityTable } from "./sql"
 
 type EntityRow = typeof KnowledgeEntityTable.$inferSelect
@@ -139,6 +140,8 @@ export interface Interface {
   readonly context: (input?: {
     projectID: ProjectSchema.ID
     limit?: number
+    query?: string
+    topic?: string
   }) => Effect.Effect<Context | undefined>
   readonly clear: (projectID: ProjectSchema.ID) => Effect.Effect<void>
 }
@@ -569,9 +572,12 @@ const layer = Layer.effect(
     const context = Effect.fn("Knowledge.context")(function* (input?: {
       projectID: ProjectSchema.ID
       limit?: number
+      query?: string
+      topic?: string
     }) {
       if (!input) return undefined
       const limit = input.limit ?? 20
+      const tokens = KnowledgeRelevance.tokenize(input.query)
       const [claimCount, entityCount, edgeCount] = yield* Effect.all([
         db
           .select({ id: KnowledgeClaimTable.id })
@@ -590,40 +596,73 @@ const layer = Layer.effect(
           .all(),
       ]).pipe(Effect.orDie)
 
-      // Contradictions first: they are the most decision-relevant prior knowledge.
-      const contradictionRows = yield* db
-        .select()
-        .from(KnowledgeClaimTable)
-        .where(
-          and(
-            eq(KnowledgeClaimTable.project_id, input.projectID),
-            eq(KnowledgeClaimTable.status, "contradicted"),
-          ),
-        )
-        .all()
-        .pipe(Effect.orDie)
-      const recentClaimRows = yield* db
+      const allClaims = yield* db
         .select()
         .from(KnowledgeClaimTable)
         .where(eq(KnowledgeClaimTable.project_id, input.projectID))
         .all()
         .pipe(Effect.orDie)
-      const entityRows = yield* db
+      const allEntities = yield* db
         .select()
         .from(KnowledgeEntityTable)
         .where(eq(KnowledgeEntityTable.project_id, input.projectID))
         .all()
         .pipe(Effect.orDie)
+      const allEdges = yield* db
+        .select()
+        .from(KnowledgeEdgeTable)
+        .where(eq(KnowledgeEdgeTable.project_id, input.projectID))
+        .all()
+        .pipe(Effect.orDie)
 
-      const byRecency = (a: ClaimRow, b: ClaimRow) => b.time_created - a.time_created
-      const contradictions = contradictionRows.toSorted(byRecency).slice(0, limit).map(toContextClaim)
-      const claims = recentClaimRows
-        .toSorted(byRecency)
-        .filter((row) => row.status !== "contradicted")
+      // Rank by relevance when a query/topic is supplied, else by recency.
+      const queryText = tokens.length > 0 || input.topic ? { tokens, topic: input.topic } : undefined
+      const claimRank = (row: ClaimRow) => {
+        if (!queryText) return 0
+        const topicBoost = input.topic && row.source_topic === input.topic ? 3 : 0
+        return (
+          KnowledgeRelevance.claimScore({
+            tokens: queryText.tokens,
+            statement: row.statement,
+            sourceTopic: row.source_topic ?? undefined,
+            status: row.status,
+          }) + topicBoost
+        )
+      }
+      const claimOrder = (a: ClaimRow, b: ClaimRow) => claimRank(b) - claimRank(a) || b.time_created - a.time_created
+
+      // Entity co-occurrence: how many of the ranked claims each entity is about.
+      const cooccurrence = new Map<string, number>()
+      for (const edge of allEdges) {
+        if (edge.from_kind === "claim" && edge.to_kind === "entity") {
+          cooccurrence.set(edge.to_id, (cooccurrence.get(edge.to_id) ?? 0) + 1)
+        }
+      }
+      const entityRank = (row: EntityRow) => {
+        if (!queryText) return 0
+        return KnowledgeRelevance.entityScore({
+          tokens: queryText.tokens,
+          name: row.name,
+          aliases: row.aliases ?? [],
+          cooccurrence: cooccurrence.get(row.id) ?? 0,
+        })
+      }
+      const entityOrder = (a: EntityRow, b: EntityRow) =>
+        entityRank(b) - entityRank(a) || b.time_created - a.time_created
+
+      // Contradictions first: they are the most decision-relevant prior knowledge.
+      const contradictions = allClaims
+        .filter((row) => row.status === "contradicted")
+        .toSorted(claimOrder)
         .slice(0, limit)
         .map(toContextClaim)
-      const entities = entityRows
-        .toSorted((a, b) => b.time_created - a.time_created)
+      const claims = allClaims
+        .filter((row) => row.status !== "contradicted")
+        .toSorted(claimOrder)
+        .slice(0, limit)
+        .map(toContextClaim)
+      const entities = allEntities
+        .toSorted(entityOrder)
         .slice(0, limit)
         .map((row): ContextEntity => ({ id: row.id, kind: row.kind, name: row.name }))
 

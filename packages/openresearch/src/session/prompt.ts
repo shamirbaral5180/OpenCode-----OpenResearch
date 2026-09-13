@@ -1295,7 +1295,11 @@ const layer = Layer.effect(
             const [env, mcpInstructions, knowledge, modelMsgs] = yield* Effect.all([
               sys.environment(model),
               sys.mcp(agent),
-              sys.knowledgeContext(),
+              sys.knowledgeContext(
+                lastUserMsg?.parts
+                  .flatMap((part) => (part.type === "text" ? [part.text] : []))
+                  .join("\n"),
+              ),
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
             const system = [

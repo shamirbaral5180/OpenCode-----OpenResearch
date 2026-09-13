@@ -217,3 +217,42 @@ describe("session.system knowledge context", () => {
     }),
   )
 })
+
+describe("session.system knowledge relevance", () => {
+  const seen: (string | undefined)[] = []
+  const captureIt = testEffect(
+    LayerNode.compile(SystemPrompt.node, [
+      [MCP.node, Layer.mock(MCP.Service, { instructions: () => Effect.succeed([]) })],
+      [Skill.node, Layer.mock(Skill.Service, { available: () => Effect.succeed([]) })],
+      [
+        Knowledge.node,
+        Layer.mock(Knowledge.Service, {
+          context: (input) => {
+            seen.push(input?.query)
+            return Effect.succeed(contextForQuery(input?.query))
+          },
+        }),
+      ],
+    ]),
+  )
+
+  const contextForQuery = (query?: string): Knowledge.Context => ({
+    counts: { entities: 0, claims: 2, edges: 0 },
+    contradictions: [],
+    claims: [
+      query?.toLowerCase().includes("gpa")
+        ? { id: "knc_gpa" as Knowledge.ContextClaim["id"], statement: "Relevant GPA claim", status: "verified" }
+        : { id: "knc_other" as Knowledge.ContextClaim["id"], statement: "Irrelevant claim", status: "verified" },
+    ],
+    entities: [],
+  })
+
+  captureIt.instance("passes the query through to context ranking", () =>
+    Effect.gen(function* () {
+      const prompt = yield* SystemPrompt.Service
+      const output = yield* prompt.knowledgeContext("what GPA does the scholarship need")
+      expect(seen).toContain("what GPA does the scholarship need")
+      expect(output).toContain("Relevant GPA claim")
+    }),
+  )
+})

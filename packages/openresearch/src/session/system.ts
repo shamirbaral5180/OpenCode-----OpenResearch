@@ -55,7 +55,7 @@ export interface Interface {
   readonly environment: (model: Provider.Model) => Effect.Effect<string[]>
   readonly skills: (agent: Agent.Info) => Effect.Effect<string | undefined>
   readonly mcp: (agent: Agent.Info, permission?: PermissionV1.Ruleset) => Effect.Effect<string | undefined>
-  readonly knowledgeContext: () => Effect.Effect<string | undefined>
+  readonly knowledgeContext: (query?: string) => Effect.Effect<string | undefined>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@openresearch/SystemPrompt") {}
@@ -142,9 +142,9 @@ const layer = Layer.effect(
       // Surface prior project knowledge so a new session benefits from earlier runs
       // instead of starting blank. Contradictions are the most valuable signal, so
       // they are listed first and called out explicitly.
-      knowledgeContext: Effect.fn("SystemPrompt.knowledgeContext")(function* () {
+      knowledgeContext: Effect.fn("SystemPrompt.knowledgeContext")(function* (query?: string) {
         const ctx = yield* InstanceState.context
-        const context = yield* knowledge.context({ projectID: ctx.project.id }).pipe(
+        const context = yield* knowledge.context({ projectID: ctx.project.id, query }).pipe(
           Effect.catchCause(() => Effect.succeed(undefined)),
         )
         if (!context) return

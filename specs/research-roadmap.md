@@ -58,6 +58,10 @@ context, multi-agent coordination, and monitoring. Decisions:
   dedupe by `(project_id, from, to, relation)`.
 - **No vectors yet.** Embeddings and semantic retrieval are a future layer on
   top of this store; the durable, portable truth is the relational graph.
+- **Relevance:** context injection ranks prior knowledge by keyword overlap
+  (stopword-filtered), source-topic match, claim status (contradictions first),
+  and entity co-occurrence, using the current question as the query. This is a
+  deterministic stand-in; embeddings/semantic retrieval remain a future layer.
 
 ## Live monitoring decisions (deferred, recorded for direction)
 
