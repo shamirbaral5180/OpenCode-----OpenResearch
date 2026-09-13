@@ -86,7 +86,13 @@ Server-side must never be the only option.
   `max_concurrent_subagents` (default 6), `subagent_depth` (default 1, workers do
   not re-spawn), and `research_budget_usd` (default 3) summed over the subagent
   session subtree. `0` disables a guard.
-- Remaining: an explicit "propose plan, confirm" gate and a pre-run cost estimate.
+- Confirm gate implemented: the `research_plan` tool presents subquestions,
+  assigned agents, and an honest cost estimate, and requires explicit user
+  approval. Approval is persisted on the root research session and enforced at
+  the task chokepoint once the projected worker count meets
+  `research_plan_threshold` (default 3; `0` always requires a plan). Small
+  delegations below the threshold stay frictionless.
+- Remaining: a pre-run cost estimate shown by the UI, and richer plan editing.
 
 ## Capability roadmap
 

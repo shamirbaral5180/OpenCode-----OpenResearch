@@ -55,9 +55,9 @@ describe("multi-agent orchestration policy", () => {
   test("exposes planner, scout, reviewer, and redteam roles", () => {
     for (const name of ["research", "research-scout", "research-reviewer", "research-redteam"]) {
       expect(ResearchPrompt.isResearch(name)).toBe(true)
-      expect(ResearchPrompt.agents).toContain(name)
+      expect((ResearchPrompt.agents as readonly string[]).includes(name)).toBe(true)
     }
-    expect(ResearchPrompt.agents).not.toContain("research-planner")
+    expect((ResearchPrompt.agents as readonly string[]).includes("research-planner")).toBe(false)
   })
 
   test("redteam prompt frames an adversarial falsification role", () => {

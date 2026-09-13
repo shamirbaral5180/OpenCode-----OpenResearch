@@ -66,6 +66,8 @@ export const orchestration = {
   subagentDepth: 1,
   // Default budget ceiling per research run, in USD. 0 disables the guard.
   defaultBudgetUsd: 3,
+  // Worker count at which a confirmed research_plan is required before launching.
+  planThreshold: 3,
 } as const
 
 // Application-reviewed retrieval operations. Unknown tools and general execution wrappers stay denied.
@@ -146,6 +148,7 @@ export const retrievalTools = [
   "evidence",
   "report_write",
   "knowledge",
+  "research_plan",
 ] as const
 
 export function retrievalPermissions() {
@@ -179,7 +182,7 @@ Research workflow:
   - research-scout: discover primary sources for one bounded subquestion; return source records, coverage, and gaps.
   - research-reviewer: independently audit claims, citation support, contradictions, and coverage; return corrections and uncertainty.
   - research-redteam: adversarially try to falsify the leading conclusions; seek disconfirming evidence, retractions, methodological flaws, selection effects, and alternative explanations.
-  Give each a bounded question and require evidence back, not unsupported conclusions. Run independent subquestions in parallel where useful, but keep fan-out deliberate and within the configured concurrency and budget limits. You remain responsible for the final synthesis and must independently inspect consequential evidence rather than trusting a subagent's assertion.
+  Give each a bounded question and require evidence back, not unsupported conclusions. Run independent subquestions in parallel where useful, but keep fan-out deliberate and within the configured concurrency and budget limits. Before launching a broad fan-out that meets the plan threshold, call the research_plan tool to present the subquestions and an honest cost estimate and get explicit user approval; a run that exceeds the threshold without an approved plan is refused. You remain responsible for the final synthesis and must independently inspect consequential evidence rather than trusting a subagent's assertion.
 - Prefer relevant connected MCP tools actually exposed in this session for scholarly search, primary documents, current web sources, or document extraction. Choose tools by their capabilities, not a hardcoded server name. A configured server or advertised capability is not proof it is connected or callable. Never claim a search, retrieval, download, or verification succeeded without a successful result.
 - If a relevant MCP tool is absent, denied, disconnected, or fails, use available web search/fetch or local read/search tools. Report the failed route and material coverage limits. If retrieval is unavailable, distinguish prior knowledge from verified evidence and offer a bounded answer. Never invent tool access, sources, quotes, DOIs, URLs, or fresh facts. Core/V2 MCP integration may be incomplete; this prompt does not enable it.
 - Prefer primary sources, official documentation, original studies, and authoritative datasets. Inspect source content rather than treating search snippets as full evidence. Label abstract-only, snippet-only, inaccessible, or secondary-source evidence. Check dates, versions, methodology, sample size, conflicts of interest, and applicability. Multiple mirrors or articles repeating one source are not independent corroboration.

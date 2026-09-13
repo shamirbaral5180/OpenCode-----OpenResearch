@@ -15,6 +15,7 @@ import { EffectBridge } from "@/effect/bridge"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { Database } from "@openresearch-ai/core/database/database"
 import { ResearchPrompt } from "@openresearch-ai/core/plugin/research"
+import { ResearchPlan } from "@openresearch-ai/core/research-plan"
 
 export interface TaskPromptOps {
   cancel(sessionID: SessionID): Effect.Effect<void>
@@ -28,6 +29,11 @@ const rootSession = Effect.fnUntraced(function* (sessions: Session.Interface, st
   let current = start
   while (current.parentID) current = yield* sessions.get(current.parentID)
   return current
+})
+
+const researchWorkers = Effect.fnUntraced(function* (sessions: Session.Interface, rootID: SessionID) {
+  const all = yield* sessions.list()
+  return all.filter((session) => session.parentID === rootID && session.agent?.startsWith("research-"))
 })
 
 // Sum the cost of every session in the subagent subtree, excluding the root itself.
@@ -170,6 +176,20 @@ export const TaskTool = Tool.define(
           return yield* Effect.fail(
             new Error(
               `Research budget ceiling reached ($${budget}). Increase "research_budget_usd" or resolve open subagents before starting more work.`,
+            ),
+          )
+        }
+
+        // Confirmed-plan gate: once the run will exceed the threshold of workers, a
+        // research_plan must have been approved by the user. Count existing siblings so
+        // a broad fan-out cannot slip through one worker at a time.
+        const threshold = cfg.research_plan_threshold ?? ResearchOrchestration.planThreshold
+        const siblings = yield* researchWorkers(sessions, root.id)
+        const projected = siblings.length + 1
+        if (ResearchPlan.requiresApproval({ workerCount: projected, threshold }) && !ResearchPlan.isApproved(root.metadata)) {
+          return yield* Effect.fail(
+            new Error(
+              `This run would launch ${projected} research subagents, which requires an approved plan. Call the research_plan tool first to present the subquestions and a cost estimate, get user approval, then launch the subagents.`,
             ),
           )
         }

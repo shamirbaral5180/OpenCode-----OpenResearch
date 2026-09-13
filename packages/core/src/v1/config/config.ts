@@ -88,6 +88,10 @@ export const Info = Schema.Struct({
     description:
       "Maximum concurrent research subagents under one primary session. Defaults to 6. 0 disables the guard.",
   }),
+  research_plan_threshold: Schema.optional(NonNegativeInt).annotate({
+    description:
+      "Number of research subagents that requires a confirmed research_plan before launching. Defaults to 3. 0 always requires a plan.",
+  }),
   research_budget_usd: Schema.optional(NonNegativeInt).annotate({
     description:
       "Cost ceiling in USD for one research session's subagent tree. Defaults to 3. 0 disables the guard.",
