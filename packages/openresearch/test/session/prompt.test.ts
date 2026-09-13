@@ -164,7 +164,7 @@ const blockingProcessor = Layer.succeed(
   }),
 )
 
-const runtimeFlags = RuntimeFlags.layer({ experimentalEventSystem: true })
+const runtimeFlags = RuntimeFlags.layer({ experimentalEventSystem: true, researchAudit: "off" })
 
 const testLLMServerNode = LayerNode.make({ service: TestLLMServer, layer: TestLLMServer.layer, deps: [] })
 
@@ -247,8 +247,10 @@ const withMcpInstructions = testEffect(
     mcpInstructions: [
       {
         name: "guide-server",
+        // Advertise a reviewed retrieval operation so the locked research policy
+        // permits the server's instructions to surface in context.
         instructions: "Use lookup before mutate.",
-        tools: ["guide-server_lookup"],
+        tools: ["guide-server_web_search_exa"],
       },
     ],
   }),
@@ -374,7 +376,7 @@ const user = Effect.fn("test.user")(function* (sessionID: SessionID, text: strin
     id: MessageID.ascending(),
     role: "user",
     sessionID,
-    agent: "build",
+    agent: "research",
     model: ref,
     time: { created: Date.now() },
   })
@@ -396,8 +398,8 @@ const seed = Effect.fn("test.seed")(function* (sessionID: SessionID, opts?: { fi
     role: "assistant",
     parentID: msg.id,
     sessionID,
-    mode: "build",
-    agent: "build",
+    mode: "research",
+    agent: "research",
     cost: 0,
     path: { cwd: "/tmp", root: "/tmp" },
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
@@ -427,7 +429,7 @@ const addSubtask = (sessionID: SessionID, messageID: MessageID, model = ref) =>
       type: "subtask",
       prompt: "look into the cache key path",
       description: "inspect bug",
-      agent: "general",
+      agent: "research-scout",
       model,
     })
   })
@@ -473,7 +475,7 @@ noLLMServer.instance(
         id: userID,
         role: "user",
         sessionID: chat.id,
-        agent: "build",
+        agent: "research",
         model: ref,
         time: { created: 100 },
       })
@@ -482,8 +484,8 @@ noLLMServer.instance(
         role: "assistant",
         parentID: userID,
         sessionID: chat.id,
-        mode: "build",
-        agent: "build",
+        mode: "research",
+        agent: "research",
         cost: 0,
         path: { cwd: "/tmp", root: "/tmp" },
         tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
@@ -540,7 +542,7 @@ it.instance("loop calls LLM and returns assistant message", () =>
     })
     yield* prompt.prompt({
       sessionID: chat.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "hello" }],
     })
@@ -554,14 +556,16 @@ it.instance("loop calls LLM and returns assistant message", () =>
   }),
 )
 
-for (const agent of ["build", "plan"]) {
-  it.instance(`loop resumes persisted messages using hidden legacy ${agent}`, () =>
+// The locked research policy removes the legacy coding agents (build/plan). Hidden
+// internal agents still resolve and can resume a persisted session.
+for (const agent of ["title", "summary"]) {
+  it.instance(`loop resumes persisted messages using hidden internal ${agent}`, () =>
     Effect.gen(function* () {
       const { llm } = yield* useServerConfig(providerCfg)
       const prompt = yield* SessionPrompt.Service
       const sessions = yield* Session.Service
       const agents = yield* AgentSvc.Service
-      const chat = yield* sessions.create({ title: "Legacy", agent })
+      const chat = yield* sessions.create({ title: "Hidden", agent })
       expect((yield* agents.get(agent)).hidden).toBe(true)
       yield* prompt.prompt({
         sessionID: chat.id,
@@ -576,6 +580,27 @@ for (const agent of ["build", "plan"]) {
     }),
   )
 }
+
+it.instance("loop rejects a removed legacy coding agent", () =>
+  Effect.gen(function* () {
+    const prompt = yield* SessionPrompt.Service
+    const sessions = yield* Session.Service
+    const chat = yield* sessions.create({ title: "Legacy" })
+    const exit = yield* prompt
+      .prompt({
+        sessionID: chat.id,
+        agent: "build",
+        noReply: true,
+        parts: [{ type: "text", text: "Continue the existing work" }],
+      })
+      .pipe(Effect.exit)
+
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isSuccess(exit)) throw new Error("expected failure for removed agent")
+    const message = JSON.stringify(Cause.squash(exit.cause))
+    expect(message).toContain("Agent not found")
+  }),
+)
 
 it.instance("default research prompt replaces the provider coding prompt in model requests", () =>
   Effect.gen(function* () {
@@ -635,7 +660,7 @@ it.instance("legacy prompt emits message events without session.next events", ()
     const sessions = yield* Session.Service
     const chat = yield* sessions.create({
       title: "Pinned",
-      agent: "plan",
+      agent: "research",
       model: { providerID: ProviderV2.ID.make("old"), id: ModelV2.ID.make("old-model") },
     })
     const seen: string[] = []
@@ -646,14 +671,14 @@ it.instance("legacy prompt emits message events without session.next events", ()
 
     const first = yield* prompt.prompt({
       sessionID: chat.id,
-      agent: "build",
+      agent: "research",
       model: ref,
       noReply: true,
       parts: [{ type: "text", text: "hello" }],
     })
     const second = yield* prompt.prompt({
       sessionID: chat.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "again" }],
     })
@@ -666,7 +691,7 @@ it.instance("legacy prompt emits message events without session.next events", ()
       expect(second.info.model).toEqual(ref)
     }
     expect(yield* sessions.get(chat.id)).toMatchObject({
-      agent: "build",
+      agent: "research",
       model: { providerID: ref.providerID, id: ref.modelID },
     })
     expect(seen).toContain(Session.Event.Updated.type)
@@ -697,7 +722,7 @@ it.instance("loop surfaces content-filter finishes as session errors", () =>
 
     yield* prompt.prompt({
       sessionID: chat.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "hello" }],
     })
@@ -735,7 +760,7 @@ it.instance("loop stops provider overflow instead of auto-compacting when disabl
     yield* llm.error(413, { error: { message: "request entity too large" } })
     yield* prompt.prompt({
       sessionID: chat.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "hello" }],
     })
@@ -762,7 +787,7 @@ noLLMServer.instance.skip(
 
       yield* prompt.prompt({
         sessionID: chat.id,
-        agent: "build",
+        agent: "research",
         noReply: true,
         parts: [
           { type: "text", text: "hello v2" },
@@ -814,7 +839,7 @@ it.instance("static loop returns assistant text through local provider", () =>
 
     yield* prompt.prompt({
       sessionID: session.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "hello" }],
     })
@@ -841,7 +866,7 @@ it.instance("static loop consumes queued replies across turns", () =>
 
     yield* prompt.prompt({
       sessionID: session.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "hello one" }],
     })
@@ -854,7 +879,7 @@ it.instance("static loop consumes queued replies across turns", () =>
 
     yield* prompt.prompt({
       sessionID: session.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "hello two" }],
     })
@@ -881,7 +906,7 @@ it.instance("loop continues when finish is tool-calls", () =>
     })
     yield* prompt.prompt({
       sessionID: session.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "hello" }],
     })
@@ -909,7 +934,7 @@ it.instance("loop continues when finish is unknown", () =>
     })
     yield* prompt.prompt({
       sessionID: session.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "hello" }],
     })
@@ -940,7 +965,7 @@ it.instance("glob tool keeps instance context during prompt runs", () =>
 
     yield* prompt.prompt({
       sessionID: session.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "find text files" }],
     })
@@ -976,7 +1001,7 @@ it.instance("loop continues when finish is stop but assistant has tool parts", (
     })
     yield* prompt.prompt({
       sessionID: session.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       parts: [{ type: "text", text: "hello" }],
     })
@@ -993,23 +1018,16 @@ it.instance("loop continues when finish is stop but assistant has tool parts", (
   }),
 )
 
-it.instance("failed subtask preserves metadata on error tool state", () =>
+it.instance("completed subtask records session and model metadata on the tool part", () =>
   Effect.gen(function* () {
-    const { llm } = yield* useServerConfig((url) => ({
-      ...providerCfg(url),
-      agent: {
-        general: {
-          model: "test/missing-model",
-        },
-      },
-    }))
+    const { llm } = yield* useServerConfig(providerCfg)
     const prompt = yield* SessionPrompt.Service
     const sessions = yield* Session.Service
     const chat = yield* sessions.create({ title: "Pinned" })
     yield* llm.tool("task", {
       description: "inspect bug",
       prompt: "look into the cache key path",
-      subagent_type: "general",
+      subagent_type: "research-scout",
     })
     yield* llm.text("done")
     const msg = yield* user(chat.id, "hello")
@@ -1017,22 +1035,19 @@ it.instance("failed subtask preserves metadata on error tool state", () =>
 
     const result = yield* prompt.loop({ sessionID: chat.id })
     expect(result.info.role).toBe("assistant")
-    expect(yield* llm.calls).toBe(2)
 
     const msgs = yield* MessageV2.filterCompactedEffect(chat.id)
-    const taskMsg = msgs.find((item) => item.info.role === "assistant" && item.info.agent === "general")
+    const taskMsg = msgs.find((item) => item.info.role === "assistant" && item.info.agent === "research-scout")
     expect(taskMsg?.info.role).toBe("assistant")
     if (!taskMsg || taskMsg.info.role !== "assistant") return
 
-    const tool = errorTool(taskMsg.parts)
+    const tool = completedTool(taskMsg.parts)
     if (!tool) return
 
-    expect(tool.state.error).toContain("Tool execution failed")
-    expect(tool.state.metadata).toBeDefined()
     expect(tool.state.metadata?.sessionId).toBeDefined()
     expect(tool.state.metadata?.model).toEqual({
       providerID: ProviderV2.ID.make("test"),
-      modelID: ModelV2.ID.make("missing-model"),
+      modelID: ModelV2.ID.make("test-model"),
     })
   }),
 )
@@ -1056,11 +1071,11 @@ it.instance("subtask child inherits parent session external_directory allow", ()
     expect(kids).toHaveLength(1)
     const child = kids[0]!
     const rules = child.permission ?? []
-    expect(rules).toEqual(
-      expect.arrayContaining([{ permission: "external_directory", pattern: "/tmp/allowed/*", action: "allow" }]),
-    )
     expect(Permission.evaluate("external_directory", "/tmp/allowed/file", rules).action).toBe("allow")
-    expect(Permission.evaluate("task", "anything", rules).action).toBe("deny")
+    // Research workers cannot delegate; unknown subagents are denied by their own ruleset.
+    const worker = yield* (yield* AgentSvc.Service).get("research-scout")
+    const combined = Permission.merge(worker!.permission, rules)
+    expect(Permission.evaluate("task", "anything", combined).action).toBe("deny")
   }),
 )
 
@@ -1072,14 +1087,14 @@ noLLMServer.instance("prompt tools replace previous prompt tool rules", () =>
 
     yield* prompt.prompt({
       sessionID: session.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       tools: { bash: false },
       parts: [{ type: "text", text: "first" }],
     })
     yield* prompt.prompt({
       sessionID: session.id,
-      agent: "build",
+      agent: "research",
       noReply: true,
       tools: { read: true },
       parts: [{ type: "text", text: "second" }],
@@ -1108,7 +1123,7 @@ it.instance(
       const tool = yield* pollWithTimeout(
         Effect.gen(function* () {
           const msgs = yield* MessageV2.filterCompactedEffect(chat.id)
-          const taskMsg = msgs.find((item) => item.info.role === "assistant" && item.info.agent === "general")
+          const taskMsg = msgs.find((item) => item.info.role === "assistant" && item.info.agent === "research-scout")
           const tool = taskMsg?.parts.find((part): part is SessionV1.ToolPart => part.type === "tool")
           if (tool?.state.status === "running" && tool.state.metadata?.sessionId) return tool
         }),
@@ -1140,7 +1155,7 @@ it.instance(
       yield* llm.tool("task", {
         description: "inspect bug",
         prompt: "look into the cache key path",
-        subagent_type: "general",
+        subagent_type: "research-scout",
       })
       yield* llm.hang
       yield* user(chat.id, "hello")
@@ -1150,7 +1165,7 @@ it.instance(
       const tool = yield* pollWithTimeout(
         Effect.gen(function* () {
           const msgs = yield* MessageV2.filterCompactedEffect(chat.id)
-          const assistant = msgs.findLast((item) => item.info.role === "assistant" && item.info.agent === "build")
+          const assistant = msgs.findLast((item) => item.info.role === "assistant" && item.info.agent === "research")
           const tool = assistant?.parts.find(
             (part): part is SessionV1.ToolPart => part.type === "tool" && part.tool === "task",
           )
@@ -1261,7 +1276,7 @@ raceNoLLMServer.instance(
 
       yield* prompt.prompt({
         sessionID: chat.id,
-        agent: "build",
+        agent: "research",
         noReply: true,
         parts: [{ type: "text", text: "first" }],
       })
@@ -1287,7 +1302,7 @@ raceNoLLMServer.instance(
 
       yield* prompt.prompt({
         sessionID: chat.id,
-        agent: "build",
+        agent: "research",
         noReply: true,
         parts: [{ type: "text", text: "second" }],
       })
@@ -1364,7 +1379,7 @@ noLLMServer.instance(
       yield* awaitWithTimeout(Deferred.await(aborted), "timed out waiting for task tool abort", "10 seconds")
 
       const msgs = yield* MessageV2.filterCompactedEffect(chat.id)
-      const taskMsg = msgs.find((item) => item.info.role === "assistant" && item.info.agent === "general")
+      const taskMsg = msgs.find((item) => item.info.role === "assistant" && item.info.agent === "research-scout")
       expect(taskMsg?.info.role).toBe("assistant")
       if (!taskMsg || taskMsg.info.role !== "assistant") return
 
@@ -1397,7 +1412,7 @@ it.instance(
       yield* llm.wait(1)
 
       const msgs = yield* MessageV2.filterCompactedEffect(chat.id)
-      const taskMsg = msgs.find((item) => item.info.role === "assistant" && item.info.agent === "general")
+      const taskMsg = msgs.find((item) => item.info.role === "assistant" && item.info.agent === "research-scout")
       const tool = taskMsg ? toolPart(taskMsg.parts) : undefined
       const sessionID = tool?.state.status === "running" ? tool.state.metadata?.sessionId : undefined
       expect(typeof sessionID).toBe("string")
@@ -1492,7 +1507,7 @@ it.instance("prompt submitted during an active run is included in the next LLM i
     const a = yield* prompt
       .prompt({
         sessionID: chat.id,
-        agent: "build",
+        agent: "research",
         model: ref,
         parts: [{ type: "text", text: "first" }],
       })
@@ -1506,7 +1521,7 @@ it.instance("prompt submitted during an active run is included in the next LLM i
       .prompt({
         sessionID: chat.id,
         messageID: id,
-        agent: "build",
+        agent: "research",
         model: ref,
         parts: [{ type: "text", text: "second" }],
       })
@@ -1597,7 +1612,7 @@ it.instance("shell rejects with BusyError when loop running", () =>
     yield* llm.wait(1)
     yield* waitForBusy(chat.id)
 
-    const exit = yield* prompt.shell({ sessionID: chat.id, agent: "build", command: "echo hi" }).pipe(Effect.exit)
+    const exit = yield* prompt.shell({ sessionID: chat.id, agent: "research", command: "echo hi" }).pipe(Effect.exit)
     expect(Exit.isFailure(exit)).toBe(true)
     if (Exit.isFailure(exit)) {
       expect(Cause.squash(exit.cause)).toBeInstanceOf(Session.BusyError)
@@ -1616,7 +1631,7 @@ unixNoLLMServer(
       const { prompt, run, chat } = yield* boot()
       const result = yield* prompt.shell({
         sessionID: chat.id,
-        agent: "build",
+        agent: "research",
         command: "printf out && printf err >&2",
       })
 
@@ -1641,7 +1656,7 @@ unixNoLLMServer(
       const { prompt, run, chat } = yield* boot()
       const result = yield* prompt.shell({
         sessionID: chat.id,
-        agent: "build",
+        agent: "research",
         command: "pwd",
       })
 
@@ -1667,7 +1682,7 @@ unixNoLLMServer(
         const { prompt, chat } = yield* boot()
         const result = yield* prompt.shell({
           sessionID: chat.id,
-          agent: "build",
+          agent: "research",
           command: "[[ 1 -eq 1 ]] && printf configured",
         })
 
@@ -1690,7 +1705,7 @@ unixNoLLMServer(
         const parent = path.dirname(dir)
         const result = yield* prompt.shell({
           sessionID: chat.id,
-          agent: "build",
+          agent: "research",
           command: "cd .. && pwd",
         })
 
@@ -1716,7 +1731,7 @@ unixNoLLMServer(
 
       const result = yield* prompt.shell({
         sessionID: chat.id,
-        agent: "build",
+        agent: "research",
         command: "command ls",
       })
 
@@ -1739,7 +1754,7 @@ unixNoLLMServer(
       const { prompt, run, chat } = yield* boot()
       const result = yield* prompt.shell({
         sessionID: chat.id,
-        agent: "build",
+        agent: "research",
         command: "command -v __nonexistent_cmd_e2e__ || echo 'not found' >&2; exit 1",
       })
 
@@ -1762,7 +1777,7 @@ unixNoLLMServer(
         const { prompt, chat } = yield* boot()
 
         const fiber = yield* prompt
-          .shell({ sessionID: chat.id, agent: "build", command: "printf first && sleep 0.2 && printf second" })
+          .shell({ sessionID: chat.id, agent: "research", command: "printf first && sleep 0.2 && printf second" })
           .pipe(Effect.forkChild)
 
         yield* pollWithTimeout(
@@ -1797,7 +1812,7 @@ it.instance(
       yield* llm.text("after-shell")
 
       const sh = yield* prompt
-        .shell({ sessionID: chat.id, agent: "build", command: "sleep 0.2" })
+        .shell({ sessionID: chat.id, agent: "research", command: "sleep 0.2" })
         .pipe(Effect.forkChild)
       yield* waitForBusy(chat.id)
 
@@ -1834,7 +1849,7 @@ it.instance(
       yield* llm.text("done")
 
       const sh = yield* prompt
-        .shell({ sessionID: chat.id, agent: "build", command: "sleep 0.2" })
+        .shell({ sessionID: chat.id, agent: "research", command: "sleep 0.2" })
         .pipe(Effect.forkChild)
       yield* waitForBusy(chat.id)
 
@@ -1903,7 +1918,7 @@ unixNoLLMServer(
         const ready = path.join(dir, ".shell-ready")
 
         const sh = yield* prompt
-          .shell({ sessionID: chat.id, agent: "build", command: ": > '.shell-ready'; sleep 30" })
+          .shell({ sessionID: chat.id, agent: "research", command: ": > '.shell-ready'; sleep 30" })
           .pipe(Effect.forkChild)
         yield* pollWithTimeout(
           afs.existsSafe(ready).pipe(Effect.map((exists) => (exists ? (true as const) : undefined))),
@@ -1945,7 +1960,7 @@ unixNoLLMServer(
         const sh = yield* prompt
           .shell({
             sessionID: chat.id,
-            agent: "build",
+            agent: "research",
             // Touch marker AFTER trap installs so the test waits for the actual
             // ignore-TERM state before cancelling; otherwise SIGTERM can arrive
             // before `trap` runs and the escalation path is never exercised.
@@ -1990,7 +2005,7 @@ unix(
 
       yield* prompt.prompt({
         sessionID: chat.id,
-        agent: "build",
+        agent: "research",
         noReply: true,
         parts: [{ type: "text", text: "run bash" }],
       })
@@ -2038,7 +2053,7 @@ unixNoLLMServer(
     Effect.gen(function* () {
       const { prompt, chat } = yield* boot()
 
-      const sh = yield* prompt.shell({ sessionID: chat.id, agent: "build", command: "sleep 30" }).pipe(Effect.forkChild)
+      const sh = yield* prompt.shell({ sessionID: chat.id, agent: "research", command: "sleep 30" }).pipe(Effect.forkChild)
       yield* waitForBusy(chat.id)
 
       const loop = yield* prompt.loop({ sessionID: chat.id }).pipe(Effect.forkChild)
@@ -2067,11 +2082,11 @@ unixNoLLMServer(
         const { prompt, chat } = yield* boot()
 
         const a = yield* prompt
-          .shell({ sessionID: chat.id, agent: "build", command: "sleep 30" })
+          .shell({ sessionID: chat.id, agent: "research", command: "sleep 30" })
           .pipe(Effect.forkChild)
         yield* waitForBusy(chat.id)
 
-        const exit = yield* prompt.shell({ sessionID: chat.id, agent: "build", command: "echo hi" }).pipe(Effect.exit)
+        const exit = yield* prompt.shell({ sessionID: chat.id, agent: "research", command: "echo hi" }).pipe(Effect.exit)
         expect(Exit.isFailure(exit)).toBe(true)
         if (Exit.isFailure(exit)) {
           expect(Cause.squash(exit.cause)).toBeInstanceOf(Session.BusyError)
@@ -2123,7 +2138,7 @@ noLLMServer.instance(
       const fiber = yield* prompt
         .prompt({
           sessionID: chat.id,
-          agent: "build",
+          agent: "research",
           parts: [
             { type: "text", text: "read this" },
             { type: "file", url: `file://${testFile}`, filename: "test.txt", mime: "text/plain" },
@@ -2158,7 +2173,7 @@ noLLMServer.instance(
       const fiber = yield* prompt
         .prompt({
           sessionID: chat.id,
-          agent: "build",
+          agent: "research",
           parts: [
             { type: "text", text: "read this" },
             { type: "file", url: `file://${dir}`, filename: "dir", mime: "application/x-directory" },
@@ -2190,7 +2205,7 @@ noLLMServer.instance(
       const missing = path.join(dir, "does-not-exist.ts")
       const msg = yield* prompt.prompt({
         sessionID: session.id,
-        agent: "build",
+        agent: "research",
         noReply: true,
         parts: [
           { type: "text", text: "please review @does-not-exist.ts" },
@@ -2226,7 +2241,7 @@ noLLMServer.instance(
       const missing = path.join(dir, "still-missing.ts")
       const msg = yield* prompt.prompt({
         sessionID: session.id,
-        agent: "build",
+        agent: "research",
         noReply: true,
         parts: [
           {
@@ -2306,7 +2321,7 @@ it.instance("does not loop empty assistant turns for a simple reply", () =>
 
     const result = yield* prompt.prompt({
       sessionID: session.id,
-      agent: "build",
+      agent: "research",
       parts: [{ type: "text", text: "Where is SessionProcessor?" }],
     })
 
@@ -2331,7 +2346,7 @@ it.instance("records aborted errors when prompt is cancelled mid-stream", () =>
     const fiber = yield* prompt
       .prompt({
         sessionID: session.id,
-        agent: "build",
+        agent: "research",
         parts: [{ type: "text", text: "Cancel me" }],
       })
       .pipe(Effect.forkChild)
@@ -2361,7 +2376,7 @@ it.instance("records aborted errors when prompt is cancelled mid-stream", () =>
 // Agent variant
 
 noLLMServer.instance(
-  "applies agent variant only when using agent model",
+  "research agent ignores user-configured agent model and reuses the session model",
   () =>
     Effect.gen(function* () {
       const prompt = yield* SessionPrompt.Service
@@ -2370,7 +2385,7 @@ noLLMServer.instance(
 
       const other = yield* prompt.prompt({
         sessionID: session.id,
-        agent: "build",
+        agent: "research",
         model: { providerID: ProviderV2.ID.make("openresearch"), modelID: ModelV2.ID.make("kimi-k2.5-free") },
         noReply: true,
         parts: [{ type: "text", text: "hello" }],
@@ -2378,23 +2393,24 @@ noLLMServer.instance(
       if (other.info.role !== "user") throw new Error("expected user message")
       expect(other.info.model.variant).toBeUndefined()
 
+      // The locked research agent has no model/variant of its own, so an omitted
+      // model reuses the session's current model rather than any user agent config.
       const match = yield* prompt.prompt({
         sessionID: session.id,
-        agent: "build",
+        agent: "research",
         noReply: true,
         parts: [{ type: "text", text: "hello again" }],
       })
       if (match.info.role !== "user") throw new Error("expected user message")
       expect(match.info.model).toEqual({
-        providerID: ProviderV2.ID.make("test"),
-        modelID: ModelV2.ID.make("test-model"),
-        variant: "xhigh",
+        providerID: ProviderV2.ID.make("openresearch"),
+        modelID: ModelV2.ID.make("kimi-k2.5-free"),
+        variant: undefined,
       })
-      expect(match.info.model.variant).toBe("xhigh")
 
       const override = yield* prompt.prompt({
         sessionID: session.id,
-        agent: "build",
+        agent: "research",
         noReply: true,
         variant: "high",
         parts: [{ type: "text", text: "hello third" }],
@@ -2419,6 +2435,7 @@ noLLMServer.instance(
           },
         },
       },
+      // The locked policy removes build and refuses per-agent model overrides.
       agent: {
         build: {
           model: "test/test-model",

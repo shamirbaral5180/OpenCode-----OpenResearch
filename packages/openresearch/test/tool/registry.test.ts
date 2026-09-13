@@ -13,6 +13,7 @@ import { Config } from "@/config/config"
 import { Plugin } from "@/plugin"
 import { Agent } from "@/agent/agent"
 import { InstanceState } from "@/effect/instance-state"
+import { Permission } from "@/permission"
 
 import { ToolJsonSchema } from "@/tool/json-schema"
 import { MessageID, SessionID } from "@/session/schema"
@@ -123,10 +124,13 @@ describe("tool.registry", () => {
       const registry = yield* ToolRegistry.Service
       const agents = yield* Agent.Service
       const ids = yield* registry.ids()
+      // The locked research policy denies unreviewed MCP tools, so widen the
+      // ruleset here to exercise the code-mode catalog path itself.
+      const agent = { ...(yield* agents.defaultInfo()), permission: Permission.fromConfig({ "*": "allow" }) }
       const tools = yield* registry.tools({
         providerID: ProviderV2.ID.openresearch,
         modelID: ModelV2.ID.make("test"),
-        agent: yield* agents.defaultInfo(),
+        agent,
       })
       const execute = tools.find((tool) => tool.id === "execute")
 
@@ -154,12 +158,11 @@ describe("tool.registry", () => {
     Effect.gen(function* () {
       const registry = yield* ToolRegistry.Service
       const agent = yield* Agent.Service
-      const build = yield* agent.get("build")
-      if (!build) throw new Error("build agent not found")
+      const research = yield* agent.defaultInfo()
       const task = (yield* registry.tools({
         providerID: ProviderV2.ID.openresearch,
         modelID: ModelV2.ID.make("test"),
-        agent: build,
+        agent: research,
       })).find((tool) => tool.id === "task")
 
       expect(task?.jsonSchema).toBeDefined()

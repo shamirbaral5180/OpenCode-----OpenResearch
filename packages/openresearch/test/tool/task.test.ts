@@ -5,6 +5,7 @@ import { LayerNode } from "@openresearch-ai/core/effect/layer-node"
 import { SessionProjector } from "@openresearch-ai/core/session/projector"
 import { Cause, Deferred, Effect, Exit, Fiber, Layer } from "effect"
 import { Agent } from "../../src/agent/agent"
+import { Permission } from "@/permission"
 import { BackgroundJob } from "@/background/job"
 import { EventV2Bridge } from "@/event-v2-bridge"
 import { Config } from "@/config/config"
@@ -73,7 +74,7 @@ const seed = Effect.fn("TaskToolTest.seed")(function* (title = "Pinned") {
     id: MessageID.ascending(),
     role: "user",
     sessionID: chat.id,
-    agent: "build",
+    agent: "research",
     model: ref,
     time: { created: Date.now() },
   })
@@ -82,8 +83,8 @@ const seed = Effect.fn("TaskToolTest.seed")(function* (title = "Pinned") {
     role: "assistant",
     parentID: user.id,
     sessionID: chat.id,
-    mode: "build",
-    agent: "build",
+    mode: "research",
+    agent: "research",
     cost: 0,
     path: { cwd: "/tmp", root: "/tmp" },
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
@@ -126,8 +127,8 @@ function reply(
       role: "assistant",
       parentID: input.messageID ?? MessageID.ascending(),
       sessionID: input.sessionID,
-      mode: input.agent ?? "general",
-      agent: input.agent ?? "general",
+      mode: input.agent ?? "research-scout",
+      agent: input.agent ?? "research-scout",
       cost: 0,
       path: { cwd: "/tmp", root: "/tmp" },
       tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
@@ -168,81 +169,47 @@ function reply(
 }
 
 describe("tool.task", () => {
-  it.instance(
-    "description sorts subagents by name and is stable across calls",
-    () =>
-      Effect.gen(function* () {
-        const agent = yield* Agent.Service
-        const build = yield* agent.get("build")
-        const registry = yield* ToolRegistry.Service
-        const get = Effect.fnUntraced(function* () {
-          const tools = yield* registry.tools({ ...ref, agent: build })
-          return tools.find((tool) => tool.id === TaskTool.id)?.description ?? ""
-        })
-        const first = yield* get()
-        const second = yield* get()
+  it.instance("description sorts subagents by name and is stable across calls", () =>
+    Effect.gen(function* () {
+      const agent = yield* Agent.Service
+      const research = yield* agent.defaultInfo()
+      const registry = yield* ToolRegistry.Service
+      const get = Effect.fnUntraced(function* () {
+        const tools = yield* registry.tools({ ...ref, agent: research })
+        return tools.find((tool) => tool.id === TaskTool.id)?.description ?? ""
+      })
+      const first = yield* get()
+      const second = yield* get()
 
-        expect(first).toBe(second)
+      expect(first).toBe(second)
 
-        const alpha = first.indexOf("- alpha: Alpha agent")
-        const explore = first.indexOf("- explore:")
-        const general = first.indexOf("- general:")
-        const zebra = first.indexOf("- zebra: Zebra agent")
+      // The locked research policy exposes scout, reviewer, and redteam, sorted by name.
+      const redteam = first.indexOf("- research-redteam:")
+      const reviewer = first.indexOf("- research-reviewer:")
+      const scout = first.indexOf("- research-scout:")
 
-        expect(alpha).toBeGreaterThan(-1)
-        expect(explore).toBeGreaterThan(alpha)
-        expect(general).toBeGreaterThan(explore)
-        expect(zebra).toBeGreaterThan(general)
-      }),
-    {
-      config: {
-        agent: {
-          zebra: {
-            description: "Zebra agent",
-            mode: "subagent",
-          },
-          alpha: {
-            description: "Alpha agent",
-            mode: "subagent",
-          },
-        },
-      },
-    },
+      expect(redteam).toBeGreaterThan(-1)
+      expect(reviewer).toBeGreaterThan(redteam)
+      expect(scout).toBeGreaterThan(reviewer)
+    }),
   )
 
-  it.instance(
-    "description hides denied subagents for the caller",
-    () =>
-      Effect.gen(function* () {
-        const agent = yield* Agent.Service
-        const build = yield* agent.get("build")
-        const registry = yield* ToolRegistry.Service
-        const description =
-          (yield* registry.tools({ ...ref, agent: build })).find((tool) => tool.id === TaskTool.id)?.description ?? ""
+  it.instance("description hides denied subagents for the caller", () =>
+    Effect.gen(function* () {
+      const agent = yield* Agent.Service
+      const research = yield* agent.defaultInfo()
+      const registry = yield* ToolRegistry.Service
+      const narrowed = {
+        ...research,
+        permission: Permission.fromConfig({ task: { "*": "deny", "research-scout": "allow" } }),
+      }
+      const description =
+        (yield* registry.tools({ ...ref, agent: narrowed })).find((tool) => tool.id === TaskTool.id)?.description ?? ""
 
-        expect(description).toContain("- alpha: Alpha agent")
-        expect(description).not.toContain("- zebra: Zebra agent")
-      }),
-    {
-      config: {
-        permission: {
-          task: {
-            "*": "allow",
-            zebra: "deny",
-          },
-        },
-        agent: {
-          zebra: {
-            description: "Zebra agent",
-            mode: "subagent",
-          },
-          alpha: {
-            description: "Alpha agent",
-            mode: "subagent",
-          },
-        },
-      },
-    },
+      expect(description).toContain("- research-scout:")
+      expect(description).not.toContain("- research-redteam:")
+      expect(description).not.toContain("- research-reviewer:")
+    }),
   )
 
   it.instance("execute resumes an existing task session from task_id", () =>
@@ -259,13 +226,13 @@ describe("tool.task", () => {
         {
           description: "inspect bug",
           prompt: "look into the cache key path",
-          subagent_type: "general",
+          subagent_type: "research-scout",
           task_id: child.id,
         },
         {
           sessionID: chat.id,
           messageID: assistant.id,
-          agent: "build",
+          agent: "research",
           abort: new AbortController().signal,
           extra: { promptOps },
           messages: [],
@@ -296,12 +263,12 @@ describe("tool.task", () => {
           {
             description: "inspect bug",
             prompt: "look into the cache key path",
-            subagent_type: "general",
+            subagent_type: "research-scout",
           },
           {
             sessionID: chat.id,
             messageID: assistant.id,
-            agent: "build",
+            agent: "research",
             abort: new AbortController().signal,
             extra: {
               promptOps: stubOps({
@@ -339,12 +306,12 @@ describe("tool.task", () => {
           {
             description: "inspect external directory",
             prompt: "read the external directory",
-            subagent_type: "general",
+            subagent_type: "research-scout",
           },
           {
             sessionID: chat.id,
             messageID: assistant.id,
-            agent: "build",
+            agent: "research",
             abort: new AbortController().signal,
             extra: {
               promptOps: stubOps({
@@ -384,12 +351,12 @@ describe("tool.task", () => {
           {
             description: "inspect bug",
             prompt: "look into the cache key path",
-            subagent_type: "general",
+            subagent_type: "research-scout",
           },
           {
             sessionID: chat.id,
             messageID: assistant.id,
-            agent: "build",
+            agent: "research",
             abort: new AbortController().signal,
             extra: { promptOps, ...extra },
             messages: [],
@@ -407,11 +374,11 @@ describe("tool.task", () => {
       expect(calls).toHaveLength(1)
       expect(calls[0]).toEqual({
         permission: "task",
-        patterns: ["general"],
+        patterns: ["research-scout"],
         always: ["*"],
         metadata: {
           description: "inspect bug",
-          subagent_type: "general",
+          subagent_type: "research-scout",
         },
       })
     }),
@@ -443,12 +410,12 @@ describe("tool.task", () => {
           {
             description: "inspect bug",
             prompt: "look into the cache key path",
-            subagent_type: "general",
+            subagent_type: "research-scout",
           },
           {
             sessionID: chat.id,
             messageID: assistant.id,
-            agent: "build",
+            agent: "research",
             abort: abort.signal,
             extra: { promptOps },
             messages: [],
@@ -480,13 +447,13 @@ describe("tool.task", () => {
         {
           description: "inspect bug",
           prompt: "look into the cache key path",
-          subagent_type: "general",
+          subagent_type: "research-scout",
           task_id: "ses_missing",
         },
         {
           sessionID: chat.id,
           messageID: assistant.id,
-          agent: "build",
+          agent: "research",
           abort: new AbortController().signal,
           extra: { promptOps },
           messages: [],
@@ -524,12 +491,12 @@ describe("tool.task", () => {
           {
             description: "inspect bug",
             prompt: "look into the cache key path",
-            subagent_type: "general",
+            subagent_type: "research-scout",
           },
           {
             sessionID: child.id,
             messageID: nestedAssistant.id,
-            agent: "general",
+            agent: "research-scout",
             abort: new AbortController().signal,
             extra: { promptOps: stubOps() },
             messages: [],
@@ -565,12 +532,12 @@ describe("tool.task", () => {
           {
             description: "inspect bug",
             prompt: "look into the cache key path",
-            subagent_type: "general",
+            subagent_type: "research-scout",
           },
           {
             sessionID: child.id,
             messageID: nestedAssistant.id,
-            agent: "general",
+            agent: "research-scout",
             abort: new AbortController().signal,
             extra: { promptOps: stubOps() },
             messages: [],
@@ -599,12 +566,12 @@ describe("tool.task", () => {
           {
             description: "inspect bug",
             prompt: "look into the cache key path",
-            subagent_type: "reviewer",
+            subagent_type: "research-reviewer",
           },
           {
             sessionID: chat.id,
             messageID: assistant.id,
-            agent: "build",
+            agent: "research",
             abort: new AbortController().signal,
             extra: { promptOps },
             messages: [],
@@ -615,36 +582,17 @@ describe("tool.task", () => {
 
         const child = yield* sessions.get(result.metadata.sessionId)
         expect(child.parentID).toBe(chat.id)
-        expect(child.agent).toBe("reviewer")
-        expect(child.permission).toEqual([
-          {
-            permission: "todowrite",
-            pattern: "*",
-            action: "deny",
-          },
-          {
-            permission: "bash",
-            pattern: "*",
-            action: "deny",
-          },
-          {
-            permission: "read",
-            pattern: "*",
-            action: "deny",
-          },
-        ])
+        expect(child.agent).toBe("research-reviewer")
+        // The child session carries the primary-only denies; the worker agent's own
+        // ruleset separately denies task/todowrite/edit.
+        const rules = child.permission ?? []
+        for (const permission of ["bash", "read"]) {
+          expect(rules.some((rule) => rule.permission === permission && rule.action === "deny")).toBe(true)
+        }
         expect(seen?.tools).toBeUndefined()
       }),
     {
       config: {
-        agent: {
-          reviewer: {
-            mode: "subagent",
-            permission: {
-              task: "allow",
-            },
-          },
-        },
         experimental: {
           primary_tools: ["bash", "read"],
         },
@@ -663,13 +611,13 @@ describe("tool.task", () => {
           {
             description: "inspect bug",
             prompt: "look into the cache key path",
-            subagent_type: "general",
+            subagent_type: "research-scout",
             background: true,
           },
           {
             sessionID: chat.id,
             messageID: assistant.id,
-            agent: "build",
+            agent: "research",
             abort: new AbortController().signal,
             extra: { promptOps: stubOps() },
             messages: [],
@@ -714,12 +662,12 @@ describe("tool.task", () => {
           {
             description: "inspect bug",
             prompt: "look into the cache key path",
-            subagent_type: "general",
+            subagent_type: "research-scout",
           },
           {
             sessionID: chat.id,
             messageID: assistant.id,
-            agent: "build",
+            agent: "research",
             abort: new AbortController().signal,
             extra: { promptOps },
             messages: [],
@@ -760,13 +708,13 @@ describe("tool.task", () => {
         {
           description: "inspect bug",
           prompt: "look into the cache key path",
-          subagent_type: "general",
+          subagent_type: "research-scout",
           background: true,
         },
         {
           sessionID: chat.id,
           messageID: assistant.id,
-          agent: "build",
+          agent: "research",
           abort: new AbortController().signal,
           extra: {
             promptOps: {
@@ -814,7 +762,7 @@ describe("tool.task", () => {
       const context = {
         sessionID: chat.id,
         messageID: assistant.id,
-        agent: "build",
+        agent: "research",
         abort: new AbortController().signal,
         extra: { promptOps },
         messages: [],
@@ -826,7 +774,7 @@ describe("tool.task", () => {
         {
           description: "inspect bug",
           prompt: "look into the cache key path",
-          subagent_type: "general",
+          subagent_type: "research-scout",
           background: true,
         },
         context,
@@ -835,7 +783,7 @@ describe("tool.task", () => {
         {
           description: "add investigation scope",
           prompt: "also inspect cancellation",
-          subagent_type: "general",
+          subagent_type: "research-scout",
           task_id: started.metadata.sessionId,
         },
         context,
@@ -872,13 +820,13 @@ describe("tool.task", () => {
         {
           description: "inspect bug",
           prompt: "look into the cache key path",
-          subagent_type: "general",
+          subagent_type: "research-scout",
           background: true,
         },
         {
           sessionID: chat.id,
           messageID: assistant.id,
-          agent: "build",
+          agent: "research",
           abort: new AbortController().signal,
           extra: { promptOps: stubOps({ text: "background done" }) },
           messages: [],
@@ -905,13 +853,13 @@ describe("tool.task", () => {
         {
           description: "inspect bug",
           prompt: "look into the cache key path",
-          subagent_type: "general",
+          subagent_type: "research-scout",
           background: true,
         },
         {
           sessionID: chat.id,
           messageID: assistant.id,
-          agent: "build",
+          agent: "research",
           abort: new AbortController().signal,
           extra: {
             promptOps: {
@@ -944,13 +892,13 @@ describe("tool.task", () => {
         {
           description: "inspect bug",
           prompt: "look into the cache key path",
-          subagent_type: "general",
+          subagent_type: "research-scout",
           background: true,
         },
         {
           sessionID: chat.id,
           messageID: assistant.id,
-          agent: "build",
+          agent: "research",
           abort: new AbortController().signal,
           extra: {
             promptOps: {
@@ -983,13 +931,13 @@ describe("tool.task", () => {
         {
           description: "inspect bug",
           prompt: "look into the cache key path",
-          subagent_type: "general",
+          subagent_type: "research-scout",
           background: true,
         },
         {
           sessionID: chat.id,
           messageID: assistant.id,
-          agent: "build",
+          agent: "research",
           abort: new AbortController().signal,
           extra: {
             promptOps: {
@@ -1022,13 +970,13 @@ describe("tool.task", () => {
         {
           description: "inspect bug",
           prompt: "look into the cache key path",
-          subagent_type: "general",
+          subagent_type: "research-scout",
           background: true,
         },
         {
           sessionID: chat.id,
           messageID: assistant.id,
-          agent: "build",
+          agent: "research",
           abort: new AbortController().signal,
           extra: {
             promptOps: {
