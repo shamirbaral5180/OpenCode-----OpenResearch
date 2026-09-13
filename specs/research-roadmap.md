@@ -85,8 +85,10 @@ Server-side must never be the only option.
 - `OPENRESEARCH_MONITORING` gates the scheduler (`local` default, `off` to
   disable). Server-side monitoring remains a future, explicit opt-in and is never
   required.
-- Remaining: mode **b** (OS-level local background service that runs when the app
-  is closed) and mode **c** (opt-in server-side).
+- Mode **b** (app-closed): `openresearch monitor` runs due watches once and exits,
+  so an OS-level scheduler (cron, Task Scheduler, launchd) can run monitors while
+  the app is closed. Still fully local: it uses the on-device database and models.
+- Remaining: mode **c** (opt-in server-side).
 
 ## Multi-agent orchestration decisions (deferred, recorded for direction)
 

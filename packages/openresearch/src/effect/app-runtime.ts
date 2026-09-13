@@ -54,6 +54,8 @@ import { EventV2Bridge } from "@/event-v2-bridge"
 import { LayerNode } from "@openresearch-ai/core/effect/layer-node"
 import { AppNodeBuilderV1 } from "./app-node-builder-v1"
 import { SessionProjector } from "@openresearch-ai/core/session/projector"
+import { Monitor } from "@openresearch-ai/core/monitor/monitor"
+import { MonitorScheduler } from "@/monitor/scheduler"
 
 export const AppLayer = AppNodeBuilderV1.build(
   LayerNode.group([
@@ -105,6 +107,8 @@ export const AppLayer = AppNodeBuilderV1.build(
     Installation.node,
     ShareNext.node,
     SessionShare.node,
+    Monitor.node,
+    MonitorScheduler.node,
   ]),
 ).pipe(Layer.provideMerge(AppNodeBuilderV1.build(Ripgrep.node)), Layer.provideMerge(Observability.layer))
 
