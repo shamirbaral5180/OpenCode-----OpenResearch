@@ -1,5 +1,7 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bun
 
-BUMP_TYPE=${1:-patch}
+import path from "node:path"
 
-gh workflow run publish.yml -f bump="$BUMP_TYPE"
+const script = path.join(import.meta.dir, "..", "packages", "desktop", "scripts", "release.ts")
+const proc = Bun.spawn(["bun", script, ...process.argv.slice(2)], { stdio: ["inherit", "inherit", "inherit"] })
+process.exit(await proc.exited)
