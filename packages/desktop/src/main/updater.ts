@@ -15,6 +15,21 @@ const REPO = "OpenCode-----OpenResearch"
 
 type Ready = { version: string; path?: string; notes?: string; name?: string }
 
+// Public release repos work unauthenticated. A private release repo needs a token
+// so the update feed and installer download can be read.
+function updateToken() {
+  return process.env.OPENRESEARCH_UPDATE_TOKEN ?? process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN ?? undefined
+}
+
+function authHeaders(extra?: Record<string, string>) {
+  const token = updateToken()
+  return {
+    "User-Agent": "OpenResearch-Updater",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  }
+}
+
 function persistence() {
   return {
     get: (): Ready | undefined => getStore().get("updaterReady") as Ready | undefined,
@@ -24,7 +39,7 @@ function persistence() {
 }
 
 async function download(url: string, destination: string) {
-  const response = await fetch(url, { headers: { "User-Agent": "OpenResearch-Updater" } })
+  const response = await fetch(url, { headers: authHeaders({ Accept: "application/octet-stream" }) })
   if (!response.ok || !response.body) {
     throw new Error(`Download failed: ${response.status} ${response.statusText}`)
   }
@@ -37,7 +52,12 @@ export function setupAutoUpdater(stop: () => Promise<void>) {
     currentVersion: app.getVersion(),
     backend: {
       checkForUpdates: async () => {
-        const releases: ReleaseInfo[] = await fetchReleases({ owner: OWNER, repo: REPO, fetch: globalThis.fetch })
+        const releases: ReleaseInfo[] = await fetchReleases({
+          owner: OWNER,
+          repo: REPO,
+          fetch: globalThis.fetch,
+          token: updateToken(),
+        })
         const update = selectUpdate({
           currentVersion: app.getVersion(),
           releases,
