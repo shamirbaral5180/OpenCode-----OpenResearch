@@ -117,4 +117,21 @@ describe("research report validation", () => {
     expect(result.valid).toBe(false)
     expect(result.errors.some((error) => error.includes("html is missing citation"))).toBe(true)
   })
+
+  test("renders a self-contained html page with the ledger source register", () => {
+    const html = ResearchReport.renderReportHtml({
+      report: report(),
+      evidence: [record("S1"), record("S2", "contradicted")],
+      title: "Topic report",
+    })
+    expect(html.startsWith("<!DOCTYPE html>")).toBe(true)
+    expect(html).toContain("<title>Topic report</title>")
+    expect(html).toContain("<h2>Source Register</h2>")
+    expect(html).toContain("S1")
+    expect(html).toContain("S2")
+    // The source register is generated from the ledger, not the report body.
+    expect(html).not.toContain("See sources.md.")
+    // Citation parity holds on the rendered page.
+    expect(ResearchReport.citedSourceIds(html).sort()).toEqual(["S1", "S2"])
+  })
 })

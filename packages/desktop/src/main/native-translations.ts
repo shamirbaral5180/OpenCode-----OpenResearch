@@ -11,6 +11,7 @@ let bundle: DesktopNativeBundle = { locale: "en", messages: { ...DESKTOP_NATIVE_
 const forkMessages = {
   "desktop.fork.updater.disabled":
     "OpenResearch updates are disabled. Rebuild and install from local source.",
+  "desktop.fork.updater.installFailed": "OpenResearch could not launch the downloaded update.",
   "desktop.fork.wsl.unsupported":
     "OpenResearch WSL integration is disabled to keep this application isolated.",
 } as const

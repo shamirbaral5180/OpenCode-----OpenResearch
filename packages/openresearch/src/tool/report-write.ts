@@ -12,14 +12,11 @@ import { ResearchReport } from "@openresearch-ai/core/research-report"
 export const Parameters = Schema.Struct({
   topic: Schema.String.annotate({ description: "Topic directory under reports/ to write into" }),
   report: Schema.String.annotate({
-    description: "Full report markdown. Must include required sections and cite ledger source IDs like [S1].",
-  }),
-  html: Schema.optional(Schema.String).annotate({
     description:
-      "Optional self-contained HTML rendition of the report (inline styles, no external assets). Written as report.html after the report validates.",
+      "Full report markdown. Must include required sections and cite ledger source IDs like [S1]. This is rendered into the final HTML page.",
   }),
   search_log: Schema.optional(Schema.String).annotate({
-    description: "Optional search-log markdown: queries tried, tools used, failures.",
+    description: "Optional search-log markdown: queries tried, tools used, failures. Rendered into the HTML page as an appendix.",
   }),
 })
 
@@ -42,7 +39,7 @@ export const ReportWriteTool = Tool.define<typeof Parameters, Metadata, FSUtil.S
 
     return {
       description:
-        "Validate and write a research report bundle under reports/<topic>/. The tool reads the evidence ledger, rejects the write when required sections are missing or any [S#] citation has no ledger record, and generates sources.md from the ledger (not from the model). Pass an optional self-contained html string to also write report.html. Retry after fixing the reported errors. Never bypass it with a raw file write for the final report.",
+        "Validate and write the research report as a single self-contained HTML page under reports/<topic>/. The tool reads the evidence ledger, rejects the write when required sections are missing or any [S#] citation has no ledger record, and generates the Source Register from the ledger (not from the model). The report is rendered to report.html; no markdown or text file is written. Retry after fixing the reported errors. Never bypass it with a raw file write for the final report.",
       parameters: Parameters,
       execute: (params: Schema.Schema.Type<typeof Parameters>, ctx: Tool.Context<Metadata>) =>
         Effect.gen(function* () {
@@ -74,7 +71,6 @@ export const ReportWriteTool = Tool.define<typeof Parameters, Metadata, FSUtil.S
           const evidence = yield* ResearchEvidence.read(fs, instance.directory, params.topic)
           const validation = ResearchReport.validate({
             report: params.report,
-            html: params.html,
             evidence: evidence.records,
           })
 
@@ -99,27 +95,18 @@ export const ReportWriteTool = Tool.define<typeof Parameters, Metadata, FSUtil.S
 
           const target = yield* uniqueTopicDir(fs, instance.directory, params.topic)
           const base = path.basename(target)
-          const reportPath = path.join(target, "report.md")
-          const sourcesPath = path.join(target, "sources.md")
+          const reportPath = path.join(target, "report.html")
+          const html = ResearchReport.renderReportHtml({
+            report: params.report,
+            evidence: evidence.records,
+            title: `Research report: ${base}`,
+            searchLog: params.search_log,
+          })
 
-          yield* fs.writeWithDirs(reportPath, params.report.endsWith("\n") ? params.report : `${params.report}\n`)
-          yield* fs.writeWithDirs(sourcesPath, renderSources(evidence.records))
-          if (params.search_log !== undefined) {
-            const logPath = path.join(target, "search-log.md")
-            yield* fs.writeWithDirs(
-              logPath,
-              params.search_log.endsWith("\n") ? params.search_log : `${params.search_log}\n`,
-            )
-          }
-          const htmlPath = params.html !== undefined ? path.join(target, "report.html") : undefined
-          if (htmlPath && params.html !== undefined) {
-            yield* fs.writeWithDirs(htmlPath, params.html.endsWith("\n") ? params.html : `${params.html}\n`)
-          }
+          yield* fs.writeWithDirs(reportPath, html)
 
-          for (const file of [reportPath, sourcesPath, ...(htmlPath ? [htmlPath] : [])]) {
-            yield* events.publish(FileSystem.Event.Edited, { file })
-            yield* events.publish(Watcher.Event.Updated, { file, event: "add" })
-          }
+          yield* events.publish(FileSystem.Event.Edited, { file: reportPath })
+          yield* events.publish(Watcher.Event.Updated, { file: reportPath, event: "add" })
 
           const metadata: Metadata = {
             topic: base,
@@ -138,8 +125,6 @@ export const ReportWriteTool = Tool.define<typeof Parameters, Metadata, FSUtil.S
               {
                 ok: true,
                 report: reportPath,
-                sources: sourcesPath,
-                ...(htmlPath ? { html: htmlPath } : {}),
                 warnings: validation.warnings,
                 citationCoverage: validation.citationCoverage,
                 verifiedShare: validation.verifiedShare,
@@ -159,35 +144,11 @@ const uniqueTopicDir = (fs: FSUtil.Interface, directory: string, topic: string) 
     const root = path.join(directory, "reports")
     for (let index = 1; index < 1000; index++) {
       const candidate = index === 1 ? path.join(root, topic) : path.join(root, `${topic}-${index}`)
-      const hasReport = yield* fs.existsSafe(path.join(candidate, "report.md"))
-      // A directory that exists without a report.md holds the working evidence ledger;
+      const hasReport = yield* fs.existsSafe(path.join(candidate, "report.html"))
+      // A directory that exists without a report.html holds the working evidence ledger;
       // write the report alongside it. Only bump the number when a report already exists,
       // so existing reports are never overwritten and the ledger stays in the same folder.
       if (!hasReport) return candidate
     }
     return yield* Effect.die(new Error(`no free report directory for topic: ${topic}`))
   })
-
-function renderSources(records: ResearchEvidence.Record[]) {
-  const lines = ["# Source Register", ""]
-  lines.push("Generated from the evidence ledger. Do not edit by hand.", "")
-  if (records.length === 0) lines.push("_No evidence records._")
-  for (const record of records) {
-    const parts = [`## ${record.source_id}`, ""]
-    if (record.source.title) parts.push(`- Title: ${record.source.title}`)
-    if (record.source.authors?.length) parts.push(`- Authors: ${record.source.authors.join(", ")}`)
-    if (record.source.year !== undefined) parts.push(`- Year: ${record.source.year}`)
-    if (record.source.container) parts.push(`- Venue: ${record.source.container}`)
-    if (record.source.doi) parts.push(`- DOI: ${record.source.doi}`)
-    if (record.source.url) parts.push(`- URL: ${record.source.url}`)
-    parts.push(`- Access: ${record.source.accessLevel}`)
-    parts.push(`- Retrieved: ${record.source.retrievedAt}`)
-    parts.push(`- Verdict: ${record.verdict}`)
-    if (record.locator) parts.push(`- Locator: ${record.locator}`)
-    if (record.quote) parts.push(`- Quote: "${record.quote}"`)
-    if (record.claim) parts.push(`- Supports ${record.claim_id}: ${record.claim}`)
-    if (record.notes) parts.push(`- Notes: ${record.notes}`)
-    lines.push(parts.join("\n"), "")
-  }
-  return `${lines.join("\n").trimEnd()}\n`
-}

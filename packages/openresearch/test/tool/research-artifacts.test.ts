@@ -165,7 +165,7 @@ describe("research artifact tool permissions", () => {
     }),
   )
 
-  it.instance("report_write writes report, sources, and html after validation", () =>
+  it.instance("report_write writes a single self-contained html page after validation", () =>
     Effect.gen(function* () {
       const test = yield* TestInstance
       const { ctx } = makeCtx()
@@ -179,21 +179,22 @@ describe("research artifact tool permissions", () => {
       }
       const info = yield* ReportWriteTool
       const tool = yield* info.init()
-      const result = yield* tool.execute({ topic: "topic", report, html: "<p>Claim [S1]. Counter [S2].</p>" }, ctx)
+      const result = yield* tool.execute({ topic: "topic", report }, ctx)
       const metadata = result.metadata as { written: boolean; errors: string[] }
       expect(metadata.errors).toEqual([])
       expect(metadata.written).toBe(true)
       const dir = path.join(test.directory, "reports", "topic")
       const files = yield* Effect.promise(async () => ({
-        report: await Bun.file(path.join(dir, "report.md")).exists(),
+        md: await Bun.file(path.join(dir, "report.md")).exists(),
         sources: await Bun.file(path.join(dir, "sources.md")).exists(),
         html: await Bun.file(path.join(dir, "report.html")).exists(),
-        sourcesText: await Bun.file(path.join(dir, "sources.md")).text(),
+        htmlText: await Bun.file(path.join(dir, "report.html")).text(),
       }))
-      expect(files.report).toBe(true)
-      expect(files.sources).toBe(true)
+      expect(files.md).toBe(false)
+      expect(files.sources).toBe(false)
       expect(files.html).toBe(true)
-      expect(files.sourcesText).toContain("S1")
+      expect(files.htmlText.startsWith("<!DOCTYPE html>")).toBe(true)
+      expect(files.htmlText).toContain("S1")
     }),
   )
 
@@ -219,9 +220,9 @@ describe("research artifact tool permissions", () => {
       const metadata = result.metadata as { written: boolean; errors: string[] }
       expect(metadata.written).toBe(false)
       expect(metadata.errors.some((error) => error.includes("evidence ledger"))).toBe(true)
-      expect(yield* Effect.promise(() => Bun.file(path.join(test.directory, "reports", "topic", "report.md")).exists())).toBe(
-        false,
-      )
+      expect(
+        yield* Effect.promise(() => Bun.file(path.join(test.directory, "reports", "topic", "report.html")).exists()),
+      ).toBe(false)
     }),
   )
 })

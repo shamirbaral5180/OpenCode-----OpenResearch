@@ -349,6 +349,7 @@
         "ignore": "7.0.5",
         "immer": "11.1.4",
         "jsonc-parser": "3.3.1",
+        "marked": "catalog:",
         "mime-types": "3.0.2",
         "minimatch": "10.2.5",
         "npm-package-arg": "13.0.2",
@@ -383,7 +384,7 @@
     },
     "packages/desktop": {
       "name": "@openresearch-ai/desktop",
-      "version": "1.0.0",
+      "version": "1.2.2",
       "dependencies": {
         "@zip.js/zip.js": "2.7.62",
         "drizzle-orm": "catalog:",

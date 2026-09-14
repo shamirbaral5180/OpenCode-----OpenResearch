@@ -277,6 +277,9 @@ const main = Effect.gen(function* () {
   registerRendererProtocol()
   setDockIcon()
   const updater = setupAutoUpdater(stopSidecars)
+  // Check for a published release on launch so the app can surface an
+  // "update available" prompt without the user opening Settings first.
+  void updater.start().catch((error) => writeLog("updater", "startup update check failed", { error }, "warn"))
   const menuDeps = {
     trigger: (id: string) => {
       const win = getLastFocusedWindow()

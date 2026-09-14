@@ -85,7 +85,7 @@ const RESEARCH_AUDIT_PROMPT = `Verification pass required. Before finalizing, au
 - For every consequential externally verifiable claim, resolve its DOI with resolve_doi, check its URL with check_url, and verify any direct quotation with verify_quote. Use verify_citation for an end-to-end check.
 - Record each source and claim with the evidence tool and set an honest verdict: verified, partial, unverified, or contradicted.
 - Correct or remove any claim you cannot verify, and state plainly that it is unverified instead of asserting it.
-- If a report was requested, finalize it only through report_write. If report_write reports errors, fix them and retry.
+- If a report was requested, finalize it only through report_write, which produces the final HTML page. Pass the markdown report; do not hand-write HTML. If report_write reports errors, fix them and retry.
 - Then give your final answer to the user. Do not merely restate the audit plan.`
 
 function mcpResourceBase64Size(value: string) {

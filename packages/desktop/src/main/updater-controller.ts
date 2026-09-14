@@ -2,12 +2,25 @@ import type { UpdaterState } from "@openresearch-ai/app/updater"
 
 export type { UpdaterState } from "@openresearch-ai/app/updater"
 
-export type UpdaterReadyRecord = { version: string }
+export type UpdaterReadyRecord = {
+  version: string
+  path?: string
+  notes?: string
+  name?: string
+}
 
 export type UpdaterBackend = {
-  checkForUpdates(): Promise<{ isUpdateAvailable?: boolean; updateInfo?: { version?: string } } | null | undefined>
+  checkForUpdates(): Promise<
+    | {
+        isUpdateAvailable?: boolean
+        updateInfo?: { version?: string }
+        ready?: UpdaterReadyRecord
+      }
+    | null
+    | undefined
+  >
   downloadUpdate(): Promise<unknown>
-  quitAndInstall(): void
+  quitAndInstall(ready: UpdaterReadyRecord): void
 }
 
 type UpdaterPersistence = {
@@ -25,6 +38,7 @@ export function createUpdaterController(input: {
   log?: (message: string, data?: object) => void
 }) {
   let state: UpdaterState = input.enabled ? { status: "idle" } : { status: "disabled" }
+  let ready: UpdaterReadyRecord | undefined
   let pending: Promise<UpdaterState> | undefined
   const listeners = new Set<(state: UpdaterState) => void>()
 
@@ -45,13 +59,15 @@ export function createUpdaterController(input: {
       const result = await input.backend.checkForUpdates()
       const version = result?.updateInfo?.version
       if (!result?.isUpdateAvailable || !version || version === input.currentVersion) {
+        ready = undefined
         await input.persistence.clear()
         return transition({ status: "up-to-date" })
       }
 
       transition({ status: "downloading", version })
       await input.backend.downloadUpdate()
-      await input.persistence.set({ version })
+      ready = result.ready ?? { version }
+      await input.persistence.set(ready)
       return transition({ status: "ready", version })
     })()
       .catch((error) =>
@@ -72,8 +88,8 @@ export function createUpdaterController(input: {
     },
     async start() {
       if (!input.enabled) return state
-      const ready = await input.persistence.get()
-      if (ready?.version === input.currentVersion) await input.persistence.clear()
+      const persisted = await input.persistence.get()
+      if (persisted?.version === input.currentVersion) await input.persistence.clear()
       return check()
     },
     check,
@@ -81,11 +97,12 @@ export function createUpdaterController(input: {
       if (!input.enabled) return
       if (state.status !== "ready") throw new Error("Update is not ready to install")
       const version = state.version
+      const record: UpdaterReadyRecord = ready ?? { version }
       transition({ status: "installing", version })
       await input
         .stop()
         .then(() => {
-          input.backend.quitAndInstall()
+          input.backend.quitAndInstall(record)
           transition({ status: "ready", version })
         })
         .catch((error) => {
