@@ -21,6 +21,7 @@ const RETRYABLE = [
   "eperm",
   "eacces",
   "7zip",
+  "7za.exe",
   "cannot access the file",
   "being used by another process",
   "resource busy",
@@ -43,10 +44,17 @@ export function nextVersion(version: string, bump: Bump) {
 }
 
 export function isRetryable(error: unknown) {
-  const code = error && typeof error === "object" && "code" in error ? String(error.code) : ""
-  const text = error instanceof Error ? `${error.name} ${error.message} ${code}` : `${String(error)} ${code}`
-  const lowered = text.toLowerCase()
-  return RETRYABLE.some((needle) => lowered.includes(needle))
+  const record = error && typeof error === "object" ? (error as Record<string, unknown>) : {}
+  const code = "code" in record ? String(record.code) : ""
+  // Bun ShellError keeps the useful 7za output in stderr/stdout; its `message` is
+  // only "Failed with exit code N". Without these the wrapper never sees the flake.
+  const stdout = typeof record.stdout === "string" ? record.stdout : ""
+  const stderr = typeof record.stderr === "string" ? record.stderr : ""
+  const base = error instanceof Error ? `${error.name} ${error.message}` : String(error)
+  const text = `${base} ${code} ${stdout} ${stderr}`.toLowerCase()
+  // 0xC0000005 (3221225477) is the access violation the bundled 7za intermittently throws.
+  if (/3221225477|0xc0000005/.test(text)) return true
+  return RETRYABLE.some((needle) => text.includes(needle))
 }
 
 export function resolveInstaller(names: string[]) {
